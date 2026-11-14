@@ -1,0 +1,9 @@
+/* This world › AI context › Writing style */
+#mundi-root .mu-style .mu-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; }
+#mundi-root .mu-style .mu-chips input[type="text"] { flex: 1 1 160px; min-width: 120px; max-width: 260px; }
+#mundi-root .mu-style .mu-style-x { margin-left: -4px; padding: 2px !important; opacity: .6; }
+#mundi-root .mu-style .mu-style-x .mu-ic { width: 12px; height: 12px; }
+#mundi-root .mu-style-presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 12px; }
+#mundi-root .mu-style-presets select { flex: 0 1 200px; }
+#mundi-root .mu-style-presets input[type="text"] { flex: 1 1 180px; min-width: 140px; }
+#mundi-root .mu-style > .mu-lib-text { white-space: pre-wrap; margin-top: 4px; }

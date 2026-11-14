@@ -61,6 +61,9 @@ function tabGame() {
     const g = game();
     return `<section><h3>General</h3>
             <label class="mu-check"><input type="checkbox" data-input="set-openstart" ${settings().openOnStart ? 'checked' : ''}><span>Open Mundi when SillyTavern starts</span></label></section>
+        <section><h3>Message box</h3>
+            <label class="mu-field"><span>How you write in a scene</span><select data-input="ui-str" data-key="inputStyle">${[['buttons', 'Say / Do / Story / See buttons'], ['both', 'The buttons, plus Free text'], ['free', 'Free text only (no buttons)']].map(([v, l]) => `<option value="${v}" ${(UI().inputStyle ?? 'buttons') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+            <small class="mu-muted">Free text is sent exactly as you write it, so one line can mix what you say and what you do. In free text, start a line with <b>&gt;</b> to steer the story, or with <b>?</b> to look at something.</small></section>
         <section><h3>AI calls</h3><p class="mu-muted">What makes Mundi call the AI (the diary, Chirp, characters' texts, narrating what you do) is now in the game: ☰ → This world → AI context.</p></section>
         <section><h3>Background</h3>
             <label class="mu-field"><span>When you move between places</span><select data-input="set-bgfollow">${[['mundi', 'Only Mundi\'s scene changes picture'], ['chat', 'SillyTavern\'s chat background follows the place too']].map(([v, l]) => `<option value="${v}" ${(settings().bgFollow ?? 'mundi') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></section>

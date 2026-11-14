@@ -29,6 +29,7 @@ export interface UiPrefs {
     /** weather sounds (the rain), apart from the interface sounds */ weatherSound: boolean; weatherVolume: number;
     /** a thing you do in a scene (shower, cook…): the AI narrates it right away */ narrateActions: boolean;
     /** characters' texts (answers to invitations, letters…) written by the AI; off: short ready-made replies */ aiTexts: boolean;
+    /** the message box: the Say / Do / Story / See buttons, the buttons plus Free, or free text only (core/compose.ts) */ inputStyle?: 'buttons' | 'both' | 'free';
     hudAutoHide: boolean; dialogOpacity: number; accent: string;
     layout: 'vn' | 'classic' | 'cards'; vn: 'box' | 'nobox' | 'subtitle';   // how the scene shows the conversation
     dialogPos?: 'center' | 'left'; spriteSize?: number; spriteY?: number; spriteW?: number; cardMode?: boolean;

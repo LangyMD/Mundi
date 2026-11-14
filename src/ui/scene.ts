@@ -11,7 +11,9 @@ import { nativeHost } from './native.js';
 import { lockScene } from '../sim/life.js';
 import { soloOf } from './lifeui.js';
 import { judgeLine, judgeReaction, settleLine } from '../sim/mood.js';
-import { state, notify, esc, game, toast, ROOT_ID, saveGame } from '../core/store.js';
+import { state, notify, esc, game, toast, ROOT_ID, saveGame, UI } from '../core/store.js';
+import { styleOf, styleNote } from '../sim/style.js';
+import { shape, modesFor, modeFor, inputStyleOf, type InputMode } from '../core/compose.js';
 import { getWorld, worldFile, systemOn, type WorldDef } from '../core/world.js';
 import type { Save } from '../core/store.js';
 import {
@@ -229,7 +231,7 @@ export function sceneHtml() {
             <div class="mu-log" data-keep="log" data-bottom>${logHtml()}</div>
             <div class="mu-composer">
                 ${modesHtml()}
-                <textarea data-focus="composer" rows="2" placeholder="${nobody ? 'You are alone here. Write what you do or think; the narrator describes the moment.' : 'Write what you say or do…'}">${esc(state.composer)}</textarea>
+                <textarea data-focus="composer" rows="2" placeholder="${nobody ? 'You are alone here. Write what you do or think; the narrator describes the moment.' : inputMode() === 'free' ? FREE_HINT : 'Write what you say or do…'}">${esc(state.composer)}</textarea>
                 <div class="mu-composer-tools">
                     ${state.generating
             ? '<button class="mu-danger" data-act="stop">■ Stop</button>'
@@ -313,7 +315,7 @@ export function chatHtml() {
             <div class="mu-log" data-keep="log" data-bottom>${logHtml()}</div>
             <div class="mu-composer">
                 ${modesHtml()}
-                <textarea data-focus="composer" rows="2" placeholder="Write what you say or do…">${esc(state.composer)}</textarea>
+                <textarea data-focus="composer" rows="2" placeholder="${inputMode() === 'free' ? FREE_HINT : 'Write what you say or do…'}">${esc(state.composer)}</textarea>
                 <div class="mu-composer-tools">
                     ${state.generating
             ? '<button class="mu-danger" data-act="stop">■ Stop</button>'
@@ -475,7 +477,7 @@ async function soloNarrate(g: Save, w: WorldDef, text: string) {
         await addUserLine(text);
         const me = personaName();
         const recent = chat().slice(-8).filter((m: any) => !m.is_system).map((m: any) => `${m.is_user ? me : m.name}: ${String(m.mes ?? '').replace(/\s+/g, ' ').slice(0, 300)}`).join('\n');
-        const out = await quiet(`${sceneText().replace(/\{\{user\}\}/g, me)}\n\n${recent}\n\nNarrate what happens next in 2 to 4 sentences, in the second person ("you"), following ${me}'s last line. ${me} is alone: describe only the place, small details, the passing moment and ${me}'s feelings and thoughts. No other character appears, speaks or arrives. Do not write ${me}'s words or decisions.${aiLangNote() ? ` ${aiLangNote()}` : ''}`, 260,
+        const out = await quiet(`${sceneText().replace(/\{\{user\}\}/g, me)}\n\n${recent}\n\nNarrate what happens next in 2 to 4 sentences, in the second person ("you"), following ${me}'s last line. ${me} is alone: describe only the place, small details, the passing moment and ${me}'s feelings and thoughts. No other character appears, speaks or arrives. Do not write ${me}'s words or decisions.${styleNote(styleOf(g)) ? ` ${styleNote(styleOf(g))}` : ''}${aiLangNote() ? ` ${aiLangNote()}` : ''}`, 260,
             'You are the quiet narrator of a life simulation. You never bring other characters into the scene.');
         if (out.trim()) await narratorLine(out.trim());
         else toast('No answer (is the AI connected?).', 'warn');
@@ -485,22 +487,26 @@ async function soloNarrate(g: Save, w: WorldDef, text: string) {
 
 /* ---------- the message box: Say / Do / Story / See (26) ---------- */
 
-export type InputMode = 'say' | 'do' | 'story' | 'see';
-const MODES: [InputMode, string, string][] = [['say', 'Say', 'chat'], ['do', 'Do', 'forward'], ['story', 'Story', 'book'], ['see', 'See', 'search']];
-export const INPUT_MODE = { v: 'say' as InputMode };
+export type { InputMode } from '../core/compose.js';
+const MODES: Record<InputMode, [string, string, string]> = {
+    free: ['Free', 'pen', 'Sent exactly as you write it: mix what you say and do. Start with > for a story direction, ? to look at something'],
+    say: ['Say', 'chat', 'What you say out loud'], do: ['Do', 'forward', 'What you do'],
+    story: ['Story', 'book', 'Steer the story (a direction for the narrator)'], see: ['See', 'search', 'Look at something: the AI describes what you see'],
+};
+// '' until you pick one: the message box then uses its first mode (Free, when the box has it).
+export const INPUT_MODE = { v: '' as InputMode | '' };
+const inputStyle = () => inputStyleOf((UI() as any).inputStyle);
+export const inputMode = () => modeFor(inputStyle(), INPUT_MODE.v);
 function modesHtml() {
-    return `<div class="mh-modes">${MODES.map(([id, label, ic]) => `<button class="${INPUT_MODE.v === id ? 'is-on' : ''}" data-act="input-mode" data-v="${esc(id)}" title="${({ say: 'What you say out loud', do: 'What you do', story: 'Steer the story (a direction for the narrator)', see: 'Look at something: the AI describes what you see' } as any)[id]}">${icon(ic)}<span>${label}</span></button>`).join('')}</div>`;
+    const list = modesFor(inputStyle());
+    if (!list.length) return '';
+    const cur = inputMode();
+    return `<div class="mh-modes">${list.map(id => { const [label, ic, hint] = MODES[id]; return `<button class="${cur === id ? 'is-on' : ''}" data-act="input-mode" data-v="${esc(id)}" title="${esc(hint)}">${icon(ic)}<span>${label}</span></button>`; }).join('')}</div>`;
 }
+// The message box's hint: free text says how to write speech, actions and the two shortcuts.
+const FREE_HINT = 'Write what you say and do, as you like. > steers the story, ? looks at something.';
 // How a line is sent in each mode.
-export function shapeLine(text: string): string {
-    const t = text.trim();
-    switch (INPUT_MODE.v) {
-        case 'do': return /^\*.*\*$/s.test(t) ? t : `*${t.replace(/^\*|\*$/g, '')}*`;
-        case 'story': return `[Story direction: ${t}]`;
-        case 'see': return `*looks at ${t.replace(/^(at|the)\s+/i, (m) => m.toLowerCase() === 'at ' ? '' : m)}* [Describe what {{user}} sees.]`;
-        default: return /^["“*]/.test(t) ? t : `"${t}"`;
-    }
-}
+export const shapeLine = (text: string): string => shape(inputMode(), text);
 
 /* ---------- other SillyTavern extensions' buttons (23) ---------- */
 

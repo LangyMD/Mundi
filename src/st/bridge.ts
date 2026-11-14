@@ -448,6 +448,9 @@ export async function sayLine(transcript: string, speaker: string, names: string
 }
 
 export const setPrompt = (key: string, text: string, depth = 0) => ctx().setExtensionPrompt(key, text, 0, depth);   // 0 = in the prompt, after the story string
+// The same, but inside the chat: `depth` messages from its end (1 = just before the newest message). Late text holds
+// better on small models, and as it never changes it costs the prompt cache nothing.
+export const setPromptInChat = (key: string, text: string, depth = 1) => ctx().setExtensionPrompt(key, text, 1, depth);
 // The engine's word on what was just asked (an invitation, a question), for the next reply only: a newer ask replaces
 // it, and the old one's timer never clears the newer one (asking three times in a row used to leave the AI answering the first).
 let askSeq = 0;
