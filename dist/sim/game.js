@@ -287,8 +287,10 @@ export async function startNewGame(o) {
             save.cfg.roomsSeen = w.places.filter(p => !p.link).map(p => p.id); // the rooms there were to choose from
         if (o.extraRooms?.length)
             save.cfg.extraRooms = o.extraRooms.filter(r => r?.id && r?.name).map(r => ({ id: r.id, name: String(r.name).slice(0, 60), map: w.maps[0]?.id ?? '', x: 50, y: 50, tags: r.tags ?? ['leisure'], desc: String(r.desc ?? '').slice(0, 400), ...(r.bg ? { bg: r.bg } : {}), closed: [] }));
-        if (o.roomActs && Object.keys(o.roomActs).length)
+        if (o.roomActs && Object.keys(o.roomActs).length) {
             save.cfg.roomActs = o.roomActs;
+            save.cfg.roomActsV = 2;
+        }
         save.cfg.start = { id: st0.id, ...(st0.id === 'custom' && o.start.text?.trim() ? { text: o.start.text.trim().slice(0, 4000) } : {}) };
         if (st0.met)
             for (const r of Object.values(save.cast)) {

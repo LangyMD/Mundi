@@ -398,7 +398,8 @@
    "x-gig",
    "x-workout",
    "x-run",
-   "x-guitar"
+   "x-guitar",
+   "x-drinks"
   ],
   "occupations": [
    "barista",
@@ -638,7 +639,8 @@
    "x-gig",
    "x-workout",
    "x-run",
-   "x-guitar"
+   "x-guitar",
+   "x-drinks"
   ],
   "occupations": [
    "barista",
@@ -847,7 +849,20 @@
    "out-work",
    "out-groceries",
    "out-night",
-   "out-beach"
+   "out-beach",
+   "x-games",
+   "x-teeth",
+   "x-swim",
+   "x-sunbathe",
+   "x-poolrelax",
+   "x-laundry",
+   "x-tinker",
+   "x-carwash",
+   "x-porch",
+   "x-plants",
+   "x-tidy",
+   "x-dinner",
+   "x-read"
   ],
   "occupations": [
    "barista",

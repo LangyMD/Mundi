@@ -157,7 +157,26 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
       g.player.loc = 'kitchen'; g.cfg.roomActs = { kitchen: ['relax'] };
       const here = needs.actionsHere(g, house).map(a => a.id);
       ok(here.includes('relax') && !here.includes('coffee') && here.includes('snack'), 'a room offers the actions chosen for it (and those possible anywhere)');
-      delete g.cfg.roomActs; delete g.cfg.extraRooms; g.player.loc = 'living';
+      // what is done at home (a shower, cooking, the TV…) can be chosen for a room, and is there by default
+      delete g.cfg.roomActs; delete g.cfg.roomActsV;
+      const pick = needs.roomActionChoices(house).map(a => a.id);
+      ok(pick.includes('shower') && pick.includes('cook') && pick.includes('x-tv') && !pick.includes('snack') && !pick.includes('x-freelance'), 'the room picker lists home actions (not what is possible anywhere or earns money)');
+      const baths = house.places.filter(p => /bath|shower|wash/i.test(p.id + ' ' + p.name));
+      ok(baths.length >= 3 && baths.every(p => needs.roomDefaults(house, p).includes('shower')), 'every bathroom offers the shower by default');
+      ok(house.places.every(p => !needs.roomDefaults(house, p).includes('gymshower')), 'no room of a house offers "Shower at the gym" by default');
+      for (const p of house.places.filter(x => !x.link)) {
+          g.player.loc = p.id;
+          const shown = needs.actionsHere(g, house).filter(a => !a.anywhere).map(a => a.id).sort().join();
+          ok(shown === needs.roomDefaults(house, p).sort().join(), `the picker's defaults are what the game offers in the room (${p.id})`);
+      }
+      g.player.loc = 'bathroom'; g.cfg.roomActs = { bathroom: ['washup'] };
+      { const ids = needs.actionsHere(g, house).map(a => a.id);
+        ok(ids.includes('shower') && ids.includes('washup') && !ids.includes('gymshower'), 'a list chosen before home actions could be ticked keeps the room\'s shower'); }
+      needs.upgradeRoomActs(g.cfg, house, house.places);
+      ok(g.cfg.roomActsV === 2 && g.cfg.roomActs.bathroom.includes('shower'), 'older lists are brought up to date once');
+      g.cfg.roomActs.bathroom = ['washup'];
+      ok(!needs.actionsHere(g, house).some(a => a.id === 'shower'), 'from then on, unticking the shower takes it out of the room');
+      delete g.cfg.roomActs; delete g.cfg.roomActsV; delete g.cfg.extraRooms; g.player.loc = 'living';
       // Home: the people can stay in; a job of your own words with its shift; going out; no checks
       { const HT = await D('sim/hometime.js'); const OUTm = await D('sim/outing.js'); const PLm = await D('sim/places.js'); const dice = await D('sim/dice.js');
         at(g, 1, 10 * 60); g.cfg.npcOut = false;

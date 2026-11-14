@@ -1,7 +1,7 @@
 // New game: first a scenario (one character card, straight into a chat) or a world;
 // a world goes: style and world → who lives in it → your character (the world's own sheet) → start.
 import { rpgOf } from '../core/rpgdef.js';
-import { placeFits } from '../sim/needs.js';
+import { roomDefaults, roomChosen, roomActionChoices, upgradeRoomActs } from '../sim/needs.js';
 import { safeUrl } from '../core/safe.js';
 import { defaultAttrs, pointsUsed, POINTS, POINT_COST, mod } from '../sim/rpg.js';
 import { listSaves, type SaveRow } from '../sim/game.js';
@@ -89,8 +89,10 @@ const roomsOf = (): string[] => {
 const ROOM_TAGS: [string, string][] = [['leisure', 'Free time'], ['outdoor', 'Outdoors'], ['food', 'Food'], ['sport', 'Sport'], ['service', 'Chores'], ['study', 'Study']];
 const extraOf = () => (store().extraRooms ??= []) as { id: string; name: string; desc: string; tags: string[]; bg?: string }[];
 // The actions a room offers by default (its tags, or actions made for it); `anywhere` ones are everywhere anyway.
-const roomActsDefault = (w: WorldDef, p: { id: string; name?: string; tags?: string[] }) => w.actions.filter(a => !a.home && !a.anywhere && ((a.place && placeFits(a.place, p)) || (!a.place && (a.tags ?? []).some(t => (p.tags ?? []).includes(t)) && !(a.notTags ?? []).some(t => (p.tags ?? []).includes(t))))).map(a => a.id);
-const roomActs = (w: WorldDef, p: { id: string; tags?: string[] }): string[] => (store().roomActs ?? {})[p.id] ?? roomActsDefault(w, p);
+const roomActsDefault = (w: WorldDef, p: { id: string; name?: string; tags?: string[] }) => roomDefaults(w, p);
+const roomActs = (w: WorldDef, p: { id: string; name?: string; tags?: string[] }): string[] => roomChosen(store(), w, p) ?? roomActsDefault(w, p);
+// every room of this house (the world's and the ones added), for bringing older chosen lists up to date
+const allRooms = (w: WorldDef) => [...w.places, ...extraOf()];
 // Which one a click is about: inside This Home (.mu-house-rooms) it is the game going on.
 const at = (el: HTMLElement) => { HT = el.closest('.mu-house-rooms') ? 'game' : 'wizard'; };
 // This Home › The house: the same picker for the game going on.
@@ -121,7 +123,7 @@ function roomEditHtml(w: WorldDef): string {
     const id = ui().roomEdit; if (!id) return '';
     const p = w.places.find(x => x.id === id) ?? extraOf().find(x => x.id === id); if (!p) return '';
     const mine = roomActs(w, p);
-    const list = w.actions.filter(a => !a.home && !a.anywhere);
+    const list = roomActionChoices(w);
     const anyw = w.actions.filter(a => a.anywhere);
     return `<section class="mu-panel mu-ng-roomacts"><header class="mu-row"><h4 data-notr>${esc(p.name)}: what can be done here</h4><button class="mu-ghost mu-right" data-act="ng-room-acts-reset">Default</button><button class="mu-ibtn mu-ghost" data-act="ng-room-edit" data-id="${esc(id)}" title="Close">${icon('x')}</button></header>
         <div class="mu-ng-roomacts-grid">${list.map(a => `<label class="mu-check"><input type="checkbox" data-input="ng-room-act" data-a="${esc(a.id)}" ${mine.includes(a.id) ? 'checked' : ''}><span>${a.icon ?? ''} ${esc(a.label || a.name)}</span></label>`).join('')}</div>
@@ -502,7 +504,7 @@ Object.assign(ACT, {
         try {
             await startNewGame({ world: W(), cast: wz.cast, examples: wz.examples, hero: { ...wz.hero, name: wz.hero.name.trim() }, persona: wz.heroMode === 'existing' ? wz.persona : undefined, lore: chosenLore(),
                 households: (wz.hh ?? []).filter((h: any) => h.members.length), family: wz.family ?? [], home: wz.home ?? undefined, difficulty: wz.difficulty ?? 'normal',
-                approval: wz.approval ?? undefined, ties: (wz.rels ?? []).filter((t: any) => t.a !== t.b), mode: rpgOf(W()) ? playMode() as any : undefined, rpg: rpgState()?.s, memoriesFrom: wz.memories || undefined, jobs: wz.jobs ?? undefined, rooms: isScenario(W()) ? roomsOf() : undefined, extraRooms: isScenario(W()) ? extraOf() : undefined, roomActs: isScenario(W()) ? wz.roomActs : undefined, start: isScenario(W()) ? { id: startOf().id, text: startOf().text } : undefined });
+                approval: wz.approval ?? undefined, ties: (wz.rels ?? []).filter((t: any) => t.a !== t.b), mode: rpgOf(W()) ? playMode() as any : undefined, rpg: rpgState()?.s, memoriesFrom: wz.memories || undefined, jobs: wz.jobs ?? undefined, rooms: isScenario(W()) ? roomsOf() : undefined, extraRooms: isScenario(W()) ? extraOf() : undefined, roomActs: isScenario(W()) ? (upgradeRoomActs(wz, W(), allRooms(W())), wz.roomActs) : undefined, start: isScenario(W()) ? { id: startOf().id, text: startOf().text } : undefined });
             state.wizard = null;
         } catch (e: any) {
             console.error('[Mundi] new game', e);
@@ -525,9 +527,10 @@ Object.assign(INPUT, {
     'ng-room-f': (el) => { at(el); const f = ui().roomForm; if (!f) return; f[el.dataset.k!] = el.value; if (el.dataset.k === 'name') { const b = document.querySelector('[data-act="ng-room-save"]'); b?.toggleAttribute('aria-disabled', !el.value.trim()); } },
     'ng-room-act': (el) => {
         at(el); const wz = store(), w = WW(); const p = w.places.find(x => x.id === ui().roomEdit) ?? extraOf().find(x => x.id === ui().roomEdit); if (!p) return;
+        upgradeRoomActs(wz, w, allRooms(w));   // lists from before home actions could be chosen keep their defaults
         const cur = new Set(roomActs(w, p)); const a = el.dataset.a!;
         if ((el as HTMLInputElement).checked) cur.add(a); else cur.delete(a);
-        (wz.roomActs ??= {})[p.id] = [...cur];
+        (wz.roomActs ??= {})[p.id] = [...cur]; wz.roomActsV = 2;
         if (HT === 'game') { saveGame(); refreshPrompt(); }
     },
     'ng-start-text': (el) => { startOf().text = el.value; },

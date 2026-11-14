@@ -62,7 +62,7 @@ export const ASPIRATIONS = [
     { id: 'worker', name: 'Hard worker', icon: '💼', desc: 'Work 20 shifts.', reward: 'Serious', check: g => [countOf(g, 'shifts'), 20] },
     { id: 'social', name: 'Social butterfly', icon: '🦋', desc: 'Have five good friends.', reward: 'Charming', check: g => [Object.values(social(g).bond).filter(b => b >= 60).length, 5] },
     { id: 'host', name: 'Party host', icon: '🎉', desc: 'Throw three parties.', reward: 'Outgoing', check: g => [countOf(g, 'parties'), 3] },
-    { id: 'home', name: 'A home of your own', icon: '🏡', desc: 'Live in a house of your own, not in a small rented place.', reward: 'Calm', check: g => [['house', 'manor'].includes(g.player.home.kind) ? 1 : 0, 1] },
+    { id: 'home', name: 'A home of your own', icon: '🏡', desc: 'Live in a house of your own, not in a small rented place.', reward: 'Calm', check: g => [/^(house|manor)/.test(g.player.home.kind ?? '') ? 1 : 0, 1] },
     { id: 'scholar', name: 'Lifelong learner', icon: '🎓', desc: 'Finish three courses.', reward: 'Smart', check: g => [learning(g).done.length, 3] },
     { id: 'chef', name: 'Home chef', icon: '🍳', desc: 'Cook 15 meals at home.', reward: 'Good cook', check: g => [countOf(g, 'meals'), 15] },
     { id: 'athlete', name: 'Athlete', icon: '🏃', desc: 'Have 15 good workouts.', reward: 'Athletic', check: g => [countOf(g, 'workouts'), 15] },
