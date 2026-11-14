@@ -16,6 +16,8 @@ node tests/prompt.test.mjs > /tmp/mundi-prompt-test.log 2>&1 || { grep -v "^\[Mu
 echo "prompt: $(tail -1 /tmp/mundi-prompt-test.log)"
 node tests/style.test.mjs > /tmp/mundi-style-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-style-test.log; echo "STYLE TESTS FAILED"; exit 1; }
 echo "style: $(tail -1 /tmp/mundi-style-test.log)"
+node tests/input.test.mjs > /tmp/mundi-input-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-input-test.log; echo "INPUT TESTS FAILED"; exit 1; }
+echo "input: $(tail -1 /tmp/mundi-input-test.log)"
 node tests/guests.test.mjs > /tmp/mundi-guests-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-guests-test.log; echo "GUEST TESTS FAILED"; exit 1; }
 echo "guests: $(tail -1 /tmp/mundi-guests-test.log)"
 node tests/security.test.mjs > /tmp/mundi-security-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-security-test.log; echo "SECURITY TESTS FAILED"; exit 1; }

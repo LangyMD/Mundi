@@ -84,6 +84,9 @@ export const BLOCKS: Block[] = [
 ];
 // The scene's rules, sent last (the game handles travel and time). Editable: an empty text means this one.
 export const DEFAULT_RULES = 'Write only what happens in this place and at this moment. Do not move the story to another place or skip time; the game handles travel and time.';
+// Sent with the rules when someone is here: the player's character is a person among the others, so what they ask is
+// not an instruction to carry out (models tend to make everyone obey the player). Can be turned off (AI context).
+export const AGENCY = '{{user}} is one of the people of this world, not its author: the others have their own wants, moods and limits, answer as themselves, and may refuse, bargain with or ignore what {{user}} asks.';
 // A block's own text: `{text}` is where Mundi puts what it wrote for the block; without it, the text replaces it
 // (sent only when the block has something to say). SillyTavern's macros ({{user}}, {{char}}…) work as usual.
 export const applyTemplate = (tpl: string | undefined, text: string) => (!tpl?.trim() || !text.trim() ? text : tpl.includes('{text}') ? tpl.split('{text}').join(text) : tpl);
@@ -91,7 +94,7 @@ export const applyTemplate = (tpl: string | undefined, text: string) => (!tpl?.t
 export const blocksOf = (w: WorldDef | null | undefined, g?: unknown) => BLOCKS.filter(b => !blockSystem(b.id) || systemOn(w, blockSystem(b.id)!) || (b.id === 'needs' && !!w && isScenario(w) && homeNeedsOn(g)));   // (Home: needs turned on for this game)
 // off: blocks switched off; budget: tokens (0 = no limit); text: each block's own text (see applyTemplate);
 // rules: the scene's rules (empty = DEFAULT_RULES); extra: your own instructions.
-export interface PromptCfg { off: string[]; budget: number; text: Record<string, string>; rules: string; extra: string }
+export interface PromptCfg { off: string[]; budget: number; text: Record<string, string>; rules: string; extra: string; /** the line that says the player's character is one of the people, not their author (on unless false) */ agency?: boolean }
 export const promptCfg = (): PromptCfg => {
     const s = settings() as any; s.promptCfg ??= {};
     const c = s.promptCfg; c.off ??= []; c.budget ??= 0; c.text ??= {}; c.rules ??= ''; c.extra ??= '';
@@ -153,7 +156,7 @@ export function sceneBlocks(): Built[] {
         needs: [feelings(g, w)],
         extra: [pc.extra],
     };
-    const tail = [pc.rules.trim() || DEFAULT_RULES, aiLangNote()].filter(Boolean).join('\n');
+    const tail = [names.length && pc.agency !== false ? AGENCY : '', pc.rules.trim() || DEFAULT_RULES, aiLangNote()].filter(Boolean).join('\n');
     // a block whose system is off in this world is not there at all (not even as "off")
     const out: Built[] = blocksOf(w, g).map(b => {
         const own = (raw[b.id] ?? []).filter(Boolean).join('\n');
