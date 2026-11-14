@@ -119,7 +119,7 @@ export const PRESETS: Record<string, Preset> = {
         ],
         actions: [
             { id: 'x-tv', name: 'TV', label: 'Watch TV', icon: '📺', cost: 0, minutes: 60, home: true, effects: { mood: 6, energy: -2 } },
-            { id: 'x-coffee', name: 'Coffee', label: 'Make coffee', icon: '☕', cost: 0, minutes: 10, home: true, needsItem: 'coffee', effects: { energy: 20, thirst: 5 } },
+            { id: 'x-coffee', name: 'Coffee', label: 'Make coffee', icon: '☕', cost: 0, minutes: 10, home: true, needsItem: 'coffee', effects: { energy: 12, thirst: 5 } },
             { id: 'x-freelance', name: 'Freelance', label: 'Freelance on the computer', icon: '🖥️', cost: -70, minutes: 180, home: true, needsItem: 'pc', effects: { energy: -15, mood: -4, hygiene: -5 } },
             { id: 'x-paint', name: 'Painting', label: 'Paint something to sell', icon: '🎨', cost: 0, minutes: 120, home: true, needsItem: 'easel', effects: { energy: -10, mood: 6 },
                 roll: roll(13, ['Creative', 'Handy'], 'Your painting sold quickly.', null, 110, 'Nobody wanted this one.', { mood: -6 }) },
@@ -128,7 +128,7 @@ export const PRESETS: Record<string, Preset> = {
             { id: 'x-gig', name: 'Quick gig', label: 'Do a quick gig: deliveries (2 h)', icon: '🛵', cost: -25, minutes: 120, tags: ['work'], effects: { energy: -15, hunger: -10, hygiene: -10 } },
             { id: 'x-workout', name: 'Workout', label: 'Work out', icon: '🏋️', cost: 15, minutes: 90, tags: ['sport'], effects: { energy: -25, hygiene: -30, mood: 4, thirst: -10 },
                 roll: roll(9, ['Athletic', 'Strong', 'Sports'], 'A great workout.', { mood: 6 }, null, 'A sloppy workout; your heart was not in it.', { mood: -2 }) },
-            { id: 'x-run', name: 'Run', label: 'Go for a run', icon: '👟', cost: 0, minutes: 40, tags: ['leisure'], notTags: ['sport'], effects: { energy: -15, hygiene: -20, mood: 6, thirst: -10 } },
+            { id: 'x-run', name: 'Run', label: 'Go for a run', icon: '👟', cost: 0, minutes: 40, tags: ['leisure'], notTags: ['sport', 'indoor'], effects: { energy: -15, hygiene: -20, mood: 6, thirst: -10 } },
             { id: 'x-drinks', name: 'Drinks', label: 'Have a drink at the bar', icon: '🍸', cost: 12, minutes: 45, tags: ['bar'], effects: { mood: 10, thirst: 10, energy: -3 } },
         ] as ActionDef[],
         breakables: [
