@@ -10,6 +10,7 @@ import { onHour } from './hooks.js';
 import { routineStep, whereNow } from './people.js';
 import { note } from './facts.js';
 import { charOf } from '../st/bridge.js';
+import { gainedNpcTraits } from './needtraits.js';
 export const NPC_NEEDS = ['hunger', 'energy', 'social', 'fun', 'hygiene'];
 const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -65,8 +66,10 @@ const TRAIT_DECAY = {
 const TRAIT_TAGS = {
     athletic: [['sport'], 1.5], foodie: [['food'], 1.3], bookish: [['study'], 1.6], party: [['bar'], 1.6], outdoorsy: [['leisure'], 1.25], shy: [['bar'], 0.6], lazy: [['sport'], 0.5],
 };
-const pace = (g, r, need) => traitsOf(g, r).reduce((m, t) => m * (TRAIT_DECAY[t]?.[need] ?? 1), temper(r.avatar, need));
-const taste = (g, r, tags) => traitsOf(g, r).reduce((m, t) => { const x = TRAIT_TAGS[t]; return x && x[0].some(tag => tags.includes(tag)) ? m * x[1] : m; }, 1);
+// (the traits of their card, and the ones gained in this game)
+const allTraits = (g, r) => [...new Set([...traitsOf(g, r), ...gainedNpcTraits(g, r.avatar)])];
+const pace = (g, r, need) => allTraits(g, r).reduce((m, t) => m * (TRAIT_DECAY[t]?.[need] ?? 1), temper(r.avatar, need));
+const taste = (g, r, tags) => allTraits(g, r).reduce((m, t) => { const x = TRAIT_TAGS[t]; return x && x[0].some(tag => tags.includes(tag)) ? m * x[1] : m; }, 1);
 // What an hour does, by what they are doing (per hour; + fills, − costs).
 const HOUR = {
     sleep: { hunger: -2, energy: 11, social: 0, fun: 0, hygiene: -1 },

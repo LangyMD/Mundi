@@ -368,6 +368,8 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     const act = needs.actionsHere(g, modern).find(x => x.id === `close:love:${a}`); const i0 = g.player.stats.intimacy;
     needs.applyAction(g, modern, act);
     ok(g.player.stats.intimacy === i0 + 60 && rom.romValue(g, a) > r0, 'welcomed: the need fills and the two grow closer');
+    // (both are glowing after that, which would lean the next answers and slow the need: sim/needtraits.ts, tested on its own)
+    { const PT = await D('sim/persontraits.js'); ok(PT.hasTrait(g, a, 'glowing') && PT.hasTrait(g, PT.PLAYER, 'glowing'), 'and both are glowing'); PT.removeTrait(g, a, 'glowing'); PT.removeTrait(g, PT.PLAYER, 'glowing'); }
     set(a, 30, 42); living.approve(g, a, -living.approvalOf(g, a)); const r1 = rom.romValue(g, a);   // a crush who barely knows you: score 37.2, a kiss needs 50
     const no = close.closeOutcome(g, modern, { id: `close:kiss:${a}` });
     ok(!no.ok && /did not want that/.test(no.hint) && /does not give in/.test(no.hint) && rom.romValue(g, a) < r1, 'too soon: turned down, the AI is told so, and it costs a little');

@@ -2,6 +2,7 @@
 // The engine owns the numbers. The AI only plays the scenes: when you ask someone out or propose, the engine tells the
 // AI how ready that person is, the AI writes the reaction, and a tiny follow-up question ("did they accept?") lets
 // the engine apply the result. At night, the diary call also gives a verdict on the day's relationships.
+import { addTrait } from './persontraits.js';
 import { nowAbs, cfg } from '../core/store.js';
 import { social, bondOf, bump } from './social.js';
 import { approvalOf, approve } from './living.js';
@@ -145,6 +146,7 @@ export function endRelationship(g, avatar, name) {
     syncPartner(g, avatar);
     bump(g, avatar, was === 'married' ? -30 : -20);
     approve(g, avatar, -10);
+    addTrait(g, null, avatar, 'heartbroken', { source: 'event', days: was === 'married' ? 14 : 7, note: was === 'married' ? 'the divorce' : 'the breakup' }); // (they take it hard for a while: sim/needtraits.ts)
     note(g, was === 'married' ? '{u} and {0} got divorced.' : '{u} broke up with {0}.', [name], [avatar], g.player.loc, 'love');
     return was === 'married' ? `You and ${name} are divorced.` : `You and ${name} broke up.`;
 }

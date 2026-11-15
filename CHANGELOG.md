@@ -2,6 +2,16 @@
 
 ## Unreleased (this fork)
 
+- **Traits for the Social and Intimacy needs:** five more of the traits people gain in a game. Social butterfly
+  (comes from coffees and chats together), Loner, Affectionate (comes from hugs, cuddles and kisses with that
+  person), Reserved, and Glowing (a day, for both of you, after a welcomed cuddle, kiss or making love). For you,
+  a gained trait changes your needs through the same table as the traits chosen at the start (a social butterfly
+  misses company 25% sooner and gets 20% more from it; a loner misses it 30% later; affectionate and reserved do
+  the same for intimacy), and This world › Needs has "You, lately" to see and set them. For the people of the
+  world, a gained trait counts like one read from their card (a social butterfly's own Social need drops faster
+  and they go out more). When you try to be close, an affectionate person is more ready, a reserved or heartbroken
+  one less, and someone sick, hurt or exhausted is up for a hug at most; the AI is told why. A breakup leaves them
+  heartbroken for a week (a divorce: two).
 - **The people of the world have needs:** hunger, energy, company, fun and hygiene, moved hour by hour by what their
   day already has them doing (asleep, at work, at home, out), each person a little different. They look after
   themselves, so what shows is the texture of a day: tired after a shift, hungry, bored, lonely. The AI is told how

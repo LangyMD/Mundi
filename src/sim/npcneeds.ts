@@ -10,6 +10,7 @@ import { onHour } from './hooks.js';
 import { routineStep, whereNow } from './people.js';
 import { note } from './facts.js';
 import { charOf } from '../st/bridge.js';
+import { gainedNpcTraits } from './needtraits.js';
 
 export type NpcNeed = 'hunger' | 'energy' | 'social' | 'fun' | 'hygiene';
 export const NPC_NEEDS: NpcNeed[] = ['hunger', 'energy', 'social', 'fun', 'hygiene'];
@@ -76,8 +77,10 @@ const TRAIT_DECAY: Partial<Record<NpcTrait, Partial<Record<NpcNeed, number>>>> =
 const TRAIT_TAGS: Partial<Record<NpcTrait, [string[], number]>> = {
     athletic: [['sport'], 1.5], foodie: [['food'], 1.3], bookish: [['study'], 1.6], party: [['bar'], 1.6], outdoorsy: [['leisure'], 1.25], shy: [['bar'], 0.6], lazy: [['sport'], 0.5],
 };
-const pace = (g: Save, r: Resident, need: NpcNeed) => traitsOf(g, r).reduce((m, t) => m * (TRAIT_DECAY[t]?.[need] ?? 1), temper(r.avatar, need));
-const taste = (g: Save, r: Resident, tags: string[]) => traitsOf(g, r).reduce((m, t) => { const x = TRAIT_TAGS[t]; return x && x[0].some(tag => tags.includes(tag)) ? m * x[1] : m; }, 1);
+// (the traits of their card, and the ones gained in this game)
+const allTraits = (g: Save, r: Resident): NpcTrait[] => [...new Set([...traitsOf(g, r), ...(gainedNpcTraits(g, r.avatar) as NpcTrait[])])];
+const pace = (g: Save, r: Resident, need: NpcNeed) => allTraits(g, r).reduce((m, t) => m * (TRAIT_DECAY[t]?.[need] ?? 1), temper(r.avatar, need));
+const taste = (g: Save, r: Resident, tags: string[]) => allTraits(g, r).reduce((m, t) => { const x = TRAIT_TAGS[t]; return x && x[0].some(tag => tags.includes(tag)) ? m * x[1] : m; }, 1);
 
 // What an hour does, by what they are doing (per hour; + fills, − costs).
 const HOUR: Record<Doing, Record<NpcNeed, number>> = {

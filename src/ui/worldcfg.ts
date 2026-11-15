@@ -10,6 +10,8 @@ import { dressHtml } from './dressui.js';
 import { homeJobOf, SHIFTS, DAYS } from '../sim/hometime.js';
 import { homeSettingsHtml } from './homeui.js';
 import { modifierLines } from '../sim/modifiers.js';
+import { personTraitsHtml } from './traitsui.js';
+import { PLAYER } from '../sim/persontraits.js';
 import { ctx, thumb, characters, charOf, personaThumb, personaName, lorebooks, chatLore, bindChatLore, createLorebook } from '../st/bridge.js';
 import { homeAddress, placeOf } from '../sim/places.js';
 import { resident, homeSpot, takenHomes, syncScene, currentEntry, applyTie } from '../sim/game.js';
@@ -364,6 +366,7 @@ function needsExtras(g: Save, w: WorldDef): string {
     return `${opt.length ? `<h4>Extra needs</h4>${opt.map(s => `<label class="mu-check"><input type="checkbox" data-input="wc-optneed" data-id="${esc(s.id)}" ${optNeedOn(g, s.id) ? 'checked' : ''}><span>${esc(s.icon)} ${esc(s.name)}<small>${esc(OPT_HINT[s.id] ?? 'An extra need for this game.')}</small></span></label>`).join('')}` : ''}
         ${optNeedOn(g, 'intimacy') && opt.some(s => s.id === 'intimacy') ? `<label class="mu-check"><input type="checkbox" data-input="wc-fade" ${cfg(g).fade !== false ? 'checked' : ''}><span>Fade to black<small>The AI is told to cut away from intimate moments instead of describing them.</small></span></label>` : ''}
         ${systemOn(w, 'social') ? `<label class="mu-check"><input type="checkbox" data-input="wc-bondfade" ${cfg(g).bondFade ? 'checked' : ''}><span>Friendships fade without contact<small>After a week with no word, a friendship loses a point a day (never below an acquaintance; partners keep theirs).</small></span></label>` : ''}
+        <h4>You, lately</h4><p class="mu-muted">The traits you have gained in this game (the same kind the people of the world gain). They change your needs like the traits you chose at the start.</p>${personTraitsHtml(g, w, PLAYER)}
         ${lines.length ? `<h4>What your traits change</h4><ul class="mu-wc-mods">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}`;
 }
 const OPT_HINT: Record<string, string> = { intimacy: 'Closeness: a hug, cuddling, a kiss, making love (with people close enough, who decide for themselves), or time alone. It shows what you can do with who is here. Left empty, it wears your mood down.', social: 'Drops while you are awake; talking to people, texting, a drink out and running into friends fill it. Left empty, it wears your mood down.' };

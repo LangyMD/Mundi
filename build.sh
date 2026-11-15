@@ -36,6 +36,8 @@ node tests/security.test.mjs > /tmp/mundi-security-test.log 2>&1 || { grep -v "^
 echo "$(tail -1 /tmp/mundi-security-test.log)"
 node tests/world.test.mjs > /tmp/mundi-world-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-world-test.log; echo "WORLD TESTS FAILED"; exit 1; }
 echo "world: $(tail -1 /tmp/mundi-world-test.log)"
+node tests/needtraits.test.mjs > /tmp/mundi-needtraits-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-needtraits-test.log; echo "NEED TRAITS TESTS FAILED"; exit 1; }
+echo "need traits: $(tail -1 /tmp/mundi-needtraits-test.log)"
 node tests/daylife.test.mjs > /tmp/mundi-daylife-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-daylife-test.log; echo "DAY LIFE TESTS FAILED"; exit 1; }
 echo "day life: $(tail -1 /tmp/mundi-daylife-test.log)"
 node tests/rumors.test.mjs > /tmp/mundi-rumors-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-rumors-test.log; echo "RUMOR TESTS FAILED"; exit 1; }

@@ -5,6 +5,7 @@
 import type { Save } from '../core/store.js';
 import { activeStatuses, systemOn, type WorldDef, type ModifierDef } from '../core/world.js';
 import { levelOf } from './hobbies.js';
+import { gainedNames } from './needtraits.js';
 
 export const DEFAULT_MODIFIERS: ModifierDef[] = [
     // company and friendships
@@ -16,6 +17,14 @@ export const DEFAULT_MODIFIERS: ModifierDef[] = [
     { trait: 'Nightlife', target: 'social', gain: 1.2 },
     { trait: 'Romantic', target: 'romance', gain: 1.25 }, { trait: 'Romantic', target: 'intimacy', decay: 1.25 }, { trait: 'Romantic', target: 'intimacy', gain: 1.2 },
     { trait: 'Shy', target: 'intimacy', decay: 0.8 }, { trait: 'Serious', target: 'intimacy', decay: 0.85 },
+    // traits gained in a game (sim/persontraits.ts): company and closeness
+    { trait: 'Social butterfly', target: 'social', decay: 1.25 }, { trait: 'Social butterfly', target: 'social', gain: 1.2 }, { trait: 'Social butterfly', target: 'bond', gain: 1.1 },
+    { trait: 'Loner', target: 'social', decay: 0.7 }, { trait: 'Loner', target: 'bond', gain: 0.9 },
+    { trait: 'Homebody', target: 'social', decay: 0.85 }, { trait: 'Party animal', target: 'social', gain: 1.15 },
+    { trait: 'Affectionate', target: 'intimacy', decay: 1.2 }, { trait: 'Affectionate', target: 'intimacy', gain: 1.2 }, { trait: 'Affectionate', target: 'romance', gain: 1.1 },
+    { trait: 'Reserved', target: 'intimacy', decay: 0.75 }, { trait: 'Reserved', target: 'intimacy', gain: 0.9 },
+    { trait: 'Glowing', target: 'mood', decay: 0.8 }, { trait: 'Glowing', target: 'intimacy', decay: 0.8 },
+    { trait: 'Heartbroken', target: 'mood', decay: 1.2 }, { trait: 'Heartbroken', target: 'intimacy', gain: 0.8 },
     // mood
     { trait: 'Cheerful', target: 'mood', decay: 0.75 }, { trait: 'Calm', target: 'mood', decay: 0.85 }, { trait: 'Devout', target: 'mood', decay: 0.9 },
     { trait: 'Hot-headed', target: 'mood', decay: 1.25 }, { trait: 'Heavy drinker', target: 'mood', decay: 1.1 },
@@ -44,6 +53,7 @@ const traitsOf = (g: Save) => new Set(Object.values((g.player?.traits ?? {}) as 
 /** The rules that apply to this player right now. */
 export function activeModifiers(g: Save, w: WorldDef): ModifierDef[] {
     const have = traitsOf(g); const hobbies = systemOn(w, 'hobbies');
+    for (const n of gainedNames(g, w)) have.add(n);   // (and the ones gained in this game)
     return modifiersOf(w).filter(m => (m.trait || m.hobby) && (!m.trait || have.has(m.trait.toLowerCase())) && (!m.hobby || (hobbies && levelOf(g, m.hobby) >= (m.level ?? 1))));
 }
 /** × how fast `target` (a need, 'bond') drops by itself. */
