@@ -33,6 +33,8 @@ const TOOLS = {
     'actions.*.home': 'Where', 'actions.*.anywhere': 'Where', 'actions.*.place': 'Where', 'actions.*.tags': 'Where',
     'actions.*.roll': 'a d20 roll is part of the action system (not edited, by design)',
     'features.apps': 'the apps list (Features)', 'time.periods.*.id': 'set by the creator',
+    'homes.plans': 'Rooms tab: the plans of homes (floors, rooms, bedrooms)', 'homes.zones.*.interiors': 'Rooms tab: Homes with these rooms', 'homes.kinds.*.interior': 'Rooms tab: Homes with these rooms (or the kind\'s own rooms)',
+    'places.*.interior': 'Rooms tab', 'traits.*.id': 'Traits people gain: Id',
     'occupations.*.courses': 'Courses tab: Required for these jobs', 'occupations.*.likes': 'Jobs tab / Courses tab', 'cast.routineTemplates.*': 'Routines tab',
 };
 const covered = (leaf, shown) => shown.some(s => leaf === s || leaf.startsWith(`${s}.`)) || Object.keys(TOOLS).some(t => leaf === t || leaf.startsWith(`${t.replace(/\.\*$/, '')}.`) || leaf === t.replace(/\.\*$/, ''));
@@ -43,8 +45,8 @@ for (const id of ['modern', 'urban', 'medieval', 'house']) {
     cw.CW.w = structuredClone(w);
     const shown = new Set();
     const grab = () => { for (const m of cw.creatorHtml().matchAll(/data-path="([^"]+)"/g)) shown.add(norm(m[1])); };
-    const lists = { needs: 'statuses', actions: 'actions', jobs: 'occupations', zones: 'homes.zones', origins: 'catalogs.origins', people: 'cast.examples', lore: 'lore', courses: 'catalogs.courses', shop: 'catalogs.shop', expenses: 'homes.expenses', breakables: 'homes.breakables', rattr: 'rpg.attributes', rskill: 'rpg.skills', rclass: 'rpg.classes', rschool: 'rpg.schools', rspell: 'rpg.spells', rtitle: 'rpg.titles', rfoe: 'rpg.bestiary', habit: 'habits', festival: 'festivals', cevent: 'cityEvents', hobby: 'hobbies', pet: 'pets', god: 'realm.pantheon', faction: 'factions', inst: 'institutions', rtal: 'rpg.talents', good: 'goods', recipe: 'recipes', tower: 'towers', blade: 'blades', crop: 'crops', biz: 'businesses', sky: 'skies.events', hazard: 'skies.hazards' };
-    for (const tab of ['general', 'features', 'needs', 'maps', 'homes', 'actions', 'jobs', 'courses', 'shop', 'words', 'character', 'rpg', 'customs', 'realm', 'economy', 'people', 'lore', 'books']) {
+    const lists = { ptraits: 'traits', needs: 'statuses', actions: 'actions', jobs: 'occupations', zones: 'homes.zones', origins: 'catalogs.origins', people: 'cast.examples', lore: 'lore', courses: 'catalogs.courses', shop: 'catalogs.shop', expenses: 'homes.expenses', breakables: 'homes.breakables', rattr: 'rpg.attributes', rskill: 'rpg.skills', rclass: 'rpg.classes', rschool: 'rpg.schools', rspell: 'rpg.spells', rtitle: 'rpg.titles', rfoe: 'rpg.bestiary', habit: 'habits', festival: 'festivals', cevent: 'cityEvents', hobby: 'hobbies', pet: 'pets', god: 'realm.pantheon', faction: 'factions', inst: 'institutions', rtal: 'rpg.talents', good: 'goods', recipe: 'recipes', tower: 'towers', blade: 'blades', crop: 'crops', biz: 'businesses', sky: 'skies.events', hazard: 'skies.hazards' };
+    for (const tab of ['rooms', 'ptraits', 'general', 'features', 'needs', 'maps', 'homes', 'actions', 'jobs', 'courses', 'shop', 'words', 'character', 'rpg', 'customs', 'realm', 'economy', 'people', 'lore', 'books']) {
         cw.CW.tab = tab; grab();
         for (const [key, p] of Object.entries(lists)) { const n = (p.split('.').reduce((o, k) => o?.[k], cw.CW.w) ?? []).length; for (let i = 0; i < n; i++) { cw.CW.sel[key] = i; grab(); } cw.CW.sel[key] = 0; }
         for (const r of Object.keys(cw.CW.w.cast.routineTemplates)) { cw.CW.sel.routine = r; grab(); }
