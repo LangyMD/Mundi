@@ -8,6 +8,7 @@ import { nowAbs } from '../core/store.js';
 import { systemOn } from '../core/world.js';
 import { onHour } from './hooks.js';
 import { routineStep, whereNow } from './people.js';
+import { note } from './facts.js';
 export const NPC_NEEDS = ['hunger', 'energy', 'social', 'fun', 'hygiene'];
 const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -166,9 +167,65 @@ export function npcOf(g, w, r) {
     }
     return s;
 }
-onHour.push((g, w) => { if (npcOn(w))
+onHour.push((g, w) => { if (npcOn(w)) {
     for (const r of Object.values(g.cast))
-        npcOf(g, w, r); return []; });
+        npcOf(g, w, r);
+    meetings(g, w);
+} return []; });
+/* ---------- people meeting each other, and what is on their mind ---------- */
+const tied = (g, a, b) => (g.living?.ties ?? []).find(t => (t.a === a && t.b === b) || (t.a === b && t.b === a));
+const couple = (g, a, b) => (g.living?.pairs ?? []).some(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a));
+const pairKey = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+// Two people who mean something to each other (family, a couple, friends: a tie that is not sour) and are in the same
+// place in their free time spend it together: both get company and a better time, and now and then it is remembered
+// as a fact (so it reaches their memories and the rumors), at most once every four days for the same two.
+export function meetings(g, w) {
+    const now = hourNow(g);
+    const at = {};
+    for (const r of Object.values(g.cast)) {
+        const d = doingAt(w, r, now);
+        if (d === 'sleep' || d === 'work')
+            continue;
+        const loc = whereNow(g, w, r);
+        if (loc === 'out')
+            continue;
+        (at[loc] ??= []).push(r);
+    }
+    const seen = (g.npcMeet ??= {});
+    for (const [loc, list] of Object.entries(at)) {
+        if (list.length < 2)
+            continue;
+        for (let i = 0; i < list.length; i++)
+            for (let j = i + 1; j < list.length; j++) {
+                const A = list[i], B = list[j];
+                const t = tied(g, A.avatar, B.avatar) ?? (couple(g, A.avatar, B.avatar) ? { tone: 'close' } : undefined);
+                if (!t || t.tone === 'tense' || t.tone === 'hostile')
+                    continue;
+                for (const [me, other] of [[A, B], [B, A]]) {
+                    const s = npcOf(g, w, me);
+                    s.n.social = lim(s.n.social + 5);
+                    s.n.fun = lim(s.n.fun + 3);
+                    s.saw = [other.name, now];
+                }
+                const k = pairKey(A.avatar, B.avatar);
+                const day = Math.floor(now / 24);
+                if (loc.startsWith('home:') || (seen[k] !== undefined && day - seen[k] < 4))
+                    continue; // (at home together is everyday life)
+                seen[k] = day;
+                note(g, '{0} and {1} spent time together at {2}.', [A.name, B.name, w.places.find(p => p.id === loc)?.name ?? 'home'], [A.avatar, B.avatar], loc, 'meet');
+            }
+    }
+}
+/** Something that stays on a person's mind for a while (good or bad news of their own life). */
+export function moodlet(g, w, avatar, text, hours, good) {
+    const r = g.cast[avatar];
+    if (!r || !npcOn(w))
+        return;
+    const s = npcOf(g, w, r);
+    const now = hourNow(g);
+    s.mood = [...(s.mood ?? []).filter(m => m.until > now && m.text !== text), { text, until: now + hours, good }].slice(-3);
+}
+const moodNow = (g, s) => (s.mood ?? []).filter(m => m.until > hourNow(g)).at(-1);
 /* ---------- in words ---------- */
 /** What stands out about how they are, most pressing first (empty: nothing to say). */
 export function npcFeels(g, w, r) {
@@ -190,9 +247,12 @@ export function npcFeels(g, w, r) {
     if (n.hygiene < 20)
         out.push([n.hygiene, 'in need of a wash']);
     const words = out.sort((a, b) => a[0] - b[0]).slice(0, 2).map(x => x[1]);
-    if (!words.length && NPC_NEEDS.every(k => n[k] >= 60))
+    const m = moodNow(g, s);
+    if (m)
+        words.unshift(`${m.good ? 'happy' : 'low'} (${m.text})`);
+    else if (!words.length && NPC_NEEDS.every(k => n[k] >= 60))
         words.push('rested and in good spirits');
-    return words;
+    return words.slice(0, 2);
 }
 /** A little context for their day, when it is fresh (a shift that just ended, a nap). */
 export function npcDay(g, w, r) {
@@ -207,6 +267,8 @@ export function npcDay(g, w, r) {
         return working ? 'in the middle of a work day' : chose ? `just off work, ${chose}` : 'just off work';
     if (chose)
         return chose;
+    if (s.saw && now - s.saw[1] <= 3)
+        return now - s.saw[1] <= 0 ? `here with ${s.saw[0]}` : `was with ${s.saw[0]} earlier`;
     if (!s.did || now - s.did[1] > 2)
         return '';
     return s.did[0] === 'nap' ? 'just up from a nap' : ''; // (a meal or a wash is not news)
@@ -222,7 +284,11 @@ export function npcLine(g, w, here) {
 export function npcWilling(g, w, r) {
     if (!npcOn(w))
         return { delta: 0, why: '' };
-    const n = npcOf(g, w, r).n;
+    const s = npcOf(g, w, r);
+    const n = s.n;
+    const m = moodNow(g, s);
+    if (m && !m.good)
+        return { delta: -8, why: `${r.name} is low (${m.text})` };
     if (n.energy < 12)
         return { delta: -15, why: `${r.name} is exhausted` };
     if (n.energy < 30)
@@ -231,5 +297,7 @@ export function npcWilling(g, w, r) {
         return { delta: -5, why: `${r.name} is hungry` };
     if (n.social < 20)
         return { delta: 8, why: `${r.name} has been lonely and is glad of company` };
+    if (m?.good)
+        return { delta: 5, why: `${r.name} is in a happy mood (${m.text})` };
     return { delta: 0, why: '' };
 }

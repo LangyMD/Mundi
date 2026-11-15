@@ -461,5 +461,35 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     at(g, mon, ws * 60 + 30); g.npc = { [worker.avatar]: { n: { hunger: 0, energy: 0, social: 0, fun: 0, hygiene: 0 }, last: Math.floor((mon * 1440 + ws * 60 + 30) / 60) } };
     ok(people.routineAt(g, modern, worker, mon * 1440 + ws * 60 + 30) === modern.occupations.find(o => o.id === worker.occupation).place, 'someone exhausted and starving is still at work on their shift');
 }
+// people meet each other, and their own news stays on their mind
+{
+    const npc = await D('sim/npcneeds.js'); const people = await D('sim/people.js'); const living = await D('sim/living.js'); const F = await D('sim/facts.js');
+    seed(4); const g = open(fixture('v0.1.0-modern.json'));
+    const [A, B, C] = Object.values(g.cast);
+    g.social = { ...(g.social ?? {}), with: [], appts: [], stays: [{ avatar: A.avatar, loc: 'park', until: 1e12 }, { avatar: B.avatar, loc: 'park', until: 1e12 }, { avatar: C.avatar, loc: 'park', until: 1e12 }] };
+    // an hour when none of the three is asleep or at work
+    let hr = -1; const sat = g.day + ((6 - ((g.day - 1) % 7) + 7) % 7);
+    for (let h = 10; h <= 20 && hr < 0; h++) if ([A, B, C].every(r => ['leisure', 'home'].includes(people.routineStep(r, sat * 1440 + h * 60)[1]))) hr = h;
+    at(g, sat, hr * 60); g.player.loc = 'home:player';
+    g.living.ties = []; g.living.pairs = []; living.setTie(g, { a: A.avatar, b: B.avatar, type: 'sibling', tone: 'good' });
+    for (const r of [A, B, C]) npc.npcOf(g, modern, r).n.social = 40;
+    const f0 = F.facts(g).length;
+    npc.meetings(g, modern);
+    ok(g.npc[A.avatar].n.social === 45 && g.npc[B.avatar].n.social === 45 && g.npc[C.avatar].n.social === 40, 'two people with a tie, in the same place, keep each other company; a stranger beside them does not');
+    ok(F.facts(g).length === f0 + 1 && F.facts(g).at(-1).who.includes(A.avatar) && F.facts(g).at(-1).who.includes(B.avatar), 'and it is remembered as a fact about the two of them');
+    ok(npc.npcDay(g, modern, A) === `here with ${B.name}`, `the AI can be told who they are with ("${npc.npcDay(g, modern, A)}")`);
+    npc.meetings(g, modern); g.minutes += 60; npc.meetings(g, modern);
+    ok(F.facts(g).length === f0 + 1, 'the same two are not written down again for a few days');
+    living.setTie(g, { a: A.avatar, b: C.avatar, type: 'sibling', tone: 'hostile' }); const c0 = g.npc[C.avatar].n.social;
+    npc.meetings(g, modern);
+    ok(g.npc[C.avatar].n.social === c0, 'people on bad terms do not seek each other out');
+    // news of their own life
+    npc.moodlet(g, modern, A.avatar, 'a promotion at work', 48, true);
+    ok(/happy \(a promotion at work\)/.test(npc.npcLine(g, modern, [A])) && npc.npcWilling(g, modern, A).delta >= 0, 'good news shows for a while');
+    npc.moodlet(g, modern, A.avatar, 'a breakup', 96, false);
+    ok(/low \(a breakup\)/.test(npc.npcLine(g, modern, [A])) && npc.npcWilling(g, modern, A).delta < 0, 'bad news weighs on them, and on what they are willing to do');
+    g.day += 5; npc.npcOf(g, modern, A);
+    ok(!/breakup|promotion/.test(npc.npcLine(g, modern, [A])), 'and it passes');
+}
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

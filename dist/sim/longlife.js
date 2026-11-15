@@ -3,6 +3,7 @@ import { onDay } from './hooks.js';
 import { note } from './facts.js';
 import { npcCareer } from './work.js';
 import { lifeMoment } from './happenings.js';
+import { moodlet } from './npcneeds.js';
 import { couples, setTie, removeTie, liveTogether, homeKey } from './living.js';
 const H = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -27,6 +28,8 @@ function couplesMoveOn(g, w) {
                 out.push(text);
             for (const x of [a, b])
                 lifeMoment(g, w, x, text, tone); // the people close to you tell you
+            for (const x of [a, b])
+                moodlet(g, w, x, /engaged/.test(t) ? 'just got engaged' : /married/.test(t) ? 'just got married' : 'a breakup', tone === 'good' ? 72 : 96, tone === 'good');
         };
         if (info.stage === 'dating') {
             if (days >= 14 && rnd(g, `engage|${k}`) < 0.05) {
@@ -73,6 +76,7 @@ function careersMoveOn(g, w) {
         if (r.met)
             out.push(t.replace('{0}', r.name).replace('{1}', ranks[rank + 1].name));
         lifeMoment(g, w, r.avatar, t.replace('{0}', r.name).replace('{1}', ranks[rank + 1].name), 'good');
+        moodlet(g, w, r.avatar, 'a promotion at work', 48, true);
     }
     return out;
 }

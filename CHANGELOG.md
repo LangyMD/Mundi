@@ -12,6 +12,10 @@
   food when hungry, home when worn out, out for fun or company otherwise, with favorite places of their own. The
   choice holds for about three hours. Work, sleep, plans with you, festivals and city events are untouched. The AI is
   told why someone is where they are when there is a reason ("came for something to eat").
+- **People meet each other:** family, couples and friends who end up in the same place in their free time keep each
+  other company; now and then it is remembered ("Bianca and Marco spent time together at the Beach"), so it reaches
+  their memories and the rumors. And their own news stays on their mind for a few days (an engagement, a breakup, a
+  promotion): the AI is told, and it changes how willing they are.
 - **Who you are changes your needs:** traits, habits that became traits and hobby levels now change how fast needs
   drop and how much fills them (a cheerful person keeps their mood longer, an athletic one has more energy, a good
   cook gets more from a home meal, a film lover enjoys the cinema more), and how fast friendships and romance grow
