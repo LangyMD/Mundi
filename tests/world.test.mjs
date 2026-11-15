@@ -228,5 +228,37 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     at(g, 1, 21 * 60);
     ok(PE.whereNow(g, house, g.cast.rafa) !== PE.OUT, 'in the evening he is back home');
 }
+// balance and content: energy while awake, one shift a day, things to do where they belong
+{
+    const work = await D('sim/work.js');
+    const g = open(fixture('v0.1.0-modern.json'));
+    const idsAt = (loc) => { g.player.loc = loc; return needs.actionsHere(g, modern).map(a => a.id); };
+    at(g, 3, 8 * 60); g.player.stats.energy = 100; g.tick = {};
+    time.advance(g, modern, 60); time.advance(g, modern, 600);
+    ok(g.player.stats.energy <= 62 && g.player.stats.energy >= 50, `ten hours awake cost energy (${g.player.stats.energy})`);
+    g.asleep = true; const e0 = g.player.stats.energy; time.advance(g, modern, 240); g.asleep = false;
+    ok(g.player.stats.energy === e0, 'no energy is lost while asleep');
+    at(g, 3, 13 * 60);
+    ok(!idsAt('cinema').includes('x-run') && !idsAt('mall').includes('busk') && !idsAt('mh_library').includes('relax'), 'no running, busking or walks indoors');
+    ok(idsAt('park').includes('x-run') && idsAt('beach').includes('relax'), 'outdoors they are still there');
+    ok(idsAt('gv_creek').includes('fish') && idsAt('pl_marina').includes('fish') && idsAt('docks').includes('fish') && !idsAt('park').includes('fish'), 'fishing where there is water to fish in');
+    ok(idsAt('mall').includes('x-browse') && idsAt('mh_library').includes('x-readbook'), 'the mall and the library have something to do');
+    for (const p of modern.places.filter(x => (x.tags ?? []).includes('work'))) ok(modern.occupations.some(o => o.place === p.id), `a place of work has a job (${p.id})`);
+    const o = modern.occupations.find(x => x.id === 'barista');
+    g.player.job = { id: 'barista', rank: 0, shifts: 0 }; g.player.stats.energy = 100; at(g, 4, 7 * 60);
+    ok(work.shiftLeft(g, o) === o.shift, 'a whole shift is there to work in the morning');
+    work.workShift(g, modern, 'normal', 2);
+    ok(work.shiftLeft(g, o) === o.shift - 2, 'a short shift leaves the rest of the day\'s hours');
+    work.workShift(g, modern, 'normal');
+    const money0 = g.player.money, min0 = g.minutes;
+    const again = work.workShift(g, modern, 'normal');
+    ok(work.shiftLeft(g, o) === 0 && g.player.money === money0 && g.minutes === min0 && again.length === 1, 'after a shift\'s worth of hours, no more work that day');
+    at(g, 5, 7 * 60);
+    ok(work.shiftLeft(g, o) === o.shift, 'the next day there is a shift again');
+    const bar = modern.occupations.find(x => x.id === 'bartender');
+    g.player.job = { id: 'bartender', rank: 0, shifts: 0 }; g.player.stats.energy = 100; at(g, 6, 20 * 60);
+    work.workShift(g, modern, 'normal');
+    ok(g.day === 7 && work.shiftLeft(g, bar) === 0, 'a night shift past midnight still counts for the night it began');
+}
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

@@ -129,7 +129,8 @@
    "y": 74,
    "tags": [
     "work",
-    "food"
+    "food",
+    "indoor"
    ],
    "desc": "a small coffee shop with big windows and the smell of fresh bread.",
    "event": "The espresso machine hisses.",
@@ -146,7 +147,8 @@
    "tags": [
     "work",
     "leisure",
-    "shop"
+    "shop",
+    "indoor"
    ],
    "desc": "a big glass building with shops, a cinema and a food court.",
    "event": "The mall is packed.",
@@ -192,7 +194,8 @@
    "y": 63,
    "tags": [
     "work",
-    "study"
+    "study",
+    "indoor"
    ],
    "desc": "buildings with gardens on the hill, students and a library.",
    "event": "There are students in the hallways.",
@@ -242,7 +245,8 @@
     "work",
     "leisure",
     "food",
-    "bar"
+    "bar",
+    "indoor"
    ],
    "desc": "a tall hotel with a rooftop pool and a bar with a view over the whole city.",
    "event": "Music drifts down from the rooftop.",
@@ -296,7 +300,8 @@
    "tags": [
     "work",
     "shop",
-    "food"
+    "food",
+    "fishing"
    ],
    "desc": "the old port on the bay, with boats and a market of fresh fish by the quay.",
    "event": "Vendors call out the catch of the day.",
@@ -478,7 +483,8 @@
    "tags": [
     "food",
     "leisure",
-    "bar"
+    "bar",
+    "indoor"
    ],
    "desc": "a log lodge with a fireplace, hot chocolate, beer and rooms for climbers.",
    "closed": [],
@@ -552,7 +558,8 @@
    "tags": [
     "food",
     "leisure",
-    "bar"
+    "bar",
+    "indoor"
    ],
    "desc": "a country saloon with a jukebox, pie and cold beer.",
    "closed": [
@@ -597,7 +604,8 @@
    "x": 62,
    "y": 85,
    "tags": [
-    "leisure"
+    "leisure",
+    "fishing"
    ],
    "desc": "a lazy creek with reeds, frogs and a fishing spot.",
    "closed": []
@@ -684,7 +692,8 @@
    "y": 88,
    "tags": [
     "service",
-    "leisure"
+    "leisure",
+    "fishing"
    ],
    "desc": "the ferry piers on the bay.",
    "closed": [
@@ -714,7 +723,8 @@
    "y": 45,
    "tags": [
     "leisure",
-    "work"
+    "work",
+    "fishing"
    ],
    "desc": "yachts, jet skis and boat rentals.",
    "closed": [
@@ -1359,7 +1369,11 @@
    "start": 100,
    "max": 100,
    "hud": true,
-   "decay": null,
+   "decay": {
+    "amount": 4,
+    "everyMinutes": 60,
+    "awakeOnly": true
+   },
    "zero": {
     "text": "Exhausted, you fall asleep where you are and wake up at home.",
     "place": "home",
@@ -1494,7 +1508,7 @@
     "food"
    ],
    "effects": {
-    "energy": 15,
+    "energy": 10,
     "thirst": 10
    }
   },
@@ -1600,7 +1614,10 @@
    "effects": {
     "mood": 12,
     "energy": -5
-   }
+   },
+   "notTags": [
+    "indoor"
+   ]
   },
   {
    "id": "doctor",
@@ -1653,7 +1670,6 @@
    "icon": "🎣",
    "cost": 0,
    "minutes": 90,
-   "place": "docks",
    "effects": {
     "energy": -10
    },
@@ -1676,7 +1692,10 @@
       "mood": -5
      }
     }
-   }
+   },
+   "tags": [
+    "fishing"
+   ]
   },
   {
    "id": "fix",
@@ -1743,7 +1762,10 @@
       "mood": -6
      }
     }
-   }
+   },
+   "notTags": [
+    "indoor"
+   ]
   },
   {
    "id": "gymshower",
@@ -1796,7 +1818,7 @@
    "home": true,
    "needsItem": "coffee",
    "effects": {
-    "energy": 20,
+    "energy": 12,
     "thirst": 5
    }
   },
@@ -1978,7 +2000,8 @@
     "leisure"
    ],
    "notTags": [
-    "sport"
+    "sport",
+    "indoor"
    ],
    "effects": {
     "energy": -15,
@@ -2001,6 +2024,35 @@
     "mood": 10,
     "thirst": 10,
     "energy": -3
+   }
+  },
+  {
+   "id": "x-browse",
+   "name": "Browse the shops",
+   "label": "Browse the shops",
+   "icon": "🛍️",
+   "cost": 0,
+   "minutes": 45,
+   "tags": [
+    "shop"
+   ],
+   "effects": {
+    "mood": 8,
+    "energy": -3
+   }
+  },
+  {
+   "id": "x-readbook",
+   "name": "Read",
+   "label": "Read a book",
+   "icon": "📖",
+   "cost": 0,
+   "minutes": 60,
+   "tags": [
+    "study"
+   ],
+   "effects": {
+    "mood": 6
    }
   }
  ],
@@ -4990,6 +5042,90 @@
     "id": "cooking",
     "level": 6
    }
+  },
+  {
+   "id": "footballer",
+   "name": "Football player",
+   "place": "stadium",
+   "ranks": [
+    {
+     "name": "Reserve player",
+     "pay": 22
+    },
+    {
+     "name": "First-team player",
+     "pay": 42
+    },
+    {
+     "name": "Team captain",
+     "pay": 70
+    }
+   ],
+   "shift": 6,
+   "cost": {
+    "energy": 40,
+    "hunger": 20,
+    "thirst": 25,
+    "mood": 0,
+    "hygiene": 35
+   },
+   "likes": [
+    "Athletic",
+    "Strong",
+    "Sports"
+   ],
+   "hours": [
+    8,
+    20
+   ],
+   "promote": [
+    6,
+    12
+   ],
+   "hobby": {
+    "id": "fitness",
+    "level": 5
+   }
+  },
+  {
+   "id": "pharmacy",
+   "name": "Pharmacy assistant",
+   "place": "mh_plaza",
+   "ranks": [
+    {
+     "name": "Pharmacy assistant",
+     "pay": 16
+    },
+    {
+     "name": "Pharmacy technician",
+     "pay": 24
+    },
+    {
+     "name": "Pharmacy manager",
+     "pay": 36
+    }
+   ],
+   "shift": 6,
+   "cost": {
+    "energy": 25,
+    "hunger": 15,
+    "thirst": 15,
+    "mood": 5,
+    "hygiene": 15
+   },
+   "likes": [
+    "Smart",
+    "Kind",
+    "Calm"
+   ],
+   "hours": [
+    8,
+    20
+   ],
+   "promote": [
+    4,
+    9
+   ]
   }
  ],
  "cast": {
