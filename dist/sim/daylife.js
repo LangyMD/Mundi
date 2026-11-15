@@ -4,12 +4,12 @@
 // · Places remember you: how often you come (a regular, a first time), who works there and who comes often, and
 //   where each person last saw you.
 import { nowAbs } from '../core/store.js';
+import { hereWith } from './interiors.js';
 import { systemOn } from '../core/world.js';
 import { onHour } from './hooks.js';
 import { isWeekend } from './time.js';
 import { isHome, placeOf, playerHomeId } from './places.js';
 import { regionOf, regionState } from './worldstate.js';
-import { presentAt } from './people.js';
 import { isOpen } from './daynight.js';
 import { overhear } from './living.js';
 import { lex } from '../core/lexicon.js';
@@ -101,7 +101,7 @@ export function notice(g, w, present) {
 onHour.push((g, w) => {
     if (g.asleep)
         return [];
-    const here = presentAt(g, w, g.player.loc);
+    const here = hereWith(g, w);
     notice(g, w, here);
     return overhear(g, w, here).map(r => lex(w, 'overheard', r.text)); // a rumor you overhear goes into your journal
 });

@@ -32,6 +32,12 @@ export interface Place {
     closed?: string[];
     /** The scene's background for some parts of the day (period id → picture). */
     bgs?: Record<string, string>;
+    /** A room: the building it is in (sim/interiors.ts). Rooms are not on the map; you walk to them from inside. */
+    in?: string;
+    /** A room: who may go in. Left out: public. */
+    access?: 'public' | 'staff' | 'private' | 'locked';
+    /** A building: its rooms on its floors (the room boxes are in percent of the floor's picture). */
+    interior?: { entry: string; floors: { id: string; name: string; image?: string; images?: Record<string, string>; ratio?: number; kind?: 'plan' | 'area' }[]; rooms: { id: string; floor: string; x: number; y: number; w: number; h: number }[] };
     /** What people wear here by themselves (sim/looks.ts): a category such as 'swimwear' or 'athletic', or 'outdoors' / 'indoors'. Left out: guessed from the tags and the name. */
     wear?: string;
     /** A pin that opens another map (a city on the region map) instead of being a place. */
@@ -78,6 +84,8 @@ export interface Crisis { after: number; text: string; place?: string; cost?: nu
 export interface ActionDef {
     id: string; name: string; label: string; icon?: string; cost: number; minutes: number;
     tags?: string[]; place?: string; home?: boolean; anywhere?: boolean;
+    /** In a building with rooms: the kinds of room (room tags) it can be done in ("shower" needs a bath). */
+    rooms?: string[];
     /** An outing (a scenario): you leave the house off-screen for a while (work, errands, a night out) and come back. */
     outing?: boolean;
     effects: Record<string, number>;

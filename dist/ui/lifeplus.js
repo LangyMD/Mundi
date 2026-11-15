@@ -2,12 +2,12 @@
 // becoming traits, your apprentices), the Animals app, an apprentice button on a person's page, help for a friend's
 // letter, and the HUD's festival and lesson buttons.
 import { esc, game, notify, saveGame, toast } from '../core/store.js';
+import { hereWith } from '../sim/interiors.js';
 import { getWorld, systemOn } from '../core/world.js';
 import { lex } from '../core/lexicon.js';
 import { ACT } from './reg.js';
 import { thumb } from '../st/bridge.js';
 import { money } from '../sim/needs.js';
-import { presentAt } from '../sim/people.js';
 import { isWith } from '../sim/social.js';
 import { advance } from '../sim/time.js';
 import { reputationList, repWord, identityOf, disguised, setAlias, toggleDisguise, addRep } from '../sim/standing.js';
@@ -22,7 +22,7 @@ import { setPrompt } from '../st/bridge.js';
 const UIS = { alias: '', petName: '', area: '' };
 const bar = (v, cls = '') => `<span class="mu-lp-bar ${cls}"><i style="width:${Math.max(0, Math.min(100, v))}%"></i></span>`;
 const repBar = (v) => `<span class="mu-lp-rep"><i style="${v >= 0 ? `left:50%;width:${v / 2}%` : `right:50%;width:${-v / 2}%`}" class="${v >= 0 ? 'is-good' : 'is-bad'}"></i></span>`;
-const here = (g, w, a) => isWith(g, a) || presentAt(g, w, g.player.loc).some(r => r.avatar === a);
+const here = (g, w, a) => isWith(g, a) || hereWith(g, w).some(r => r.avatar === a);
 /* ---------- Reputation ---------- */
 export function standingApp(g, w, head) {
     const parts = [];

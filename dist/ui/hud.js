@@ -1,4 +1,7 @@
 import { lookPanelHtml } from './chatlook.js';
+import { roomRows } from './roomsui.js';
+import { scenePlace } from '../sim/interiors.js';
+import { hereWith } from '../sim/interiors.js';
 import { lex, appRef } from '../core/lexicon.js';
 import { fmtClock, is12h } from '../core/fmt.js';
 import { missingCourses, interviewChance, triedToday } from '../sim/skills.js';
@@ -26,7 +29,6 @@ import { isOuting } from '../sim/places.js';
 import { money, actionsHere, canAfford } from '../sim/needs.js';
 import { placeOf, playerHomeId } from '../sim/places.js';
 import { traitsOf, jobDef, isOpen } from '../sim/work.js';
-import { presentAt } from '../sim/people.js';
 import { period, weekday, seasonOf, toNextPeriod } from '../sim/time.js';
 import { icon } from './icons.js';
 import { featureOn } from '../sim/creator.js';
@@ -90,7 +92,7 @@ function clockCard(g, w) {
     const wx = weatherHere(g, w);
     const here = placeOf(g, w, g.player.loc);
     const se = seasonOf(g);
-    const where = esc(g.player.loc === playerHomeId ? 'Home' : here?.name ?? '');
+    const where = esc(g.player.loc === playerHomeId ? 'Home' : scenePlace(g, w)?.name ?? here?.name ?? '');
     // how busy it is here, and the mood of the region (the living world)
     const reg = systemOn(w, 'living') && g.player.loc !== playerHomeId ? regionState(g, w, regionOf(g, w, g.player.loc)) : null;
     const shut = reg && !openNow(g, w, g.player.loc);
@@ -165,7 +167,7 @@ function peopleColumn(g, w) {
 function hereBar(g, w) {
     if (state.view !== 'scene')
         return '';
-    const list = presentAt(g, w, g.player.loc); // everyone in the place, the people who came with you too
+    const list = hereWith(g, w); // everyone in the place, the people who came with you too
     if (!list.length)
         return '';
     return `<nav class="mh-here mh-glass" aria-label="Who is here"><small>Here</small>${list.map(r => `<button class="mh-here-p ${PL.card === r.avatar ? 'is-on' : ''} ${soloOf(g) === r.avatar ? 'is-solo' : ''} ${isWith(g, r.avatar) ? 'is-with' : ''}" data-act="pc-open" data-who="${esc(r.avatar)}" title="${esc(r.met ? r.name : 'Someone')}"><img src="${esc(thumb(r.avatar))}" alt=""><b data-notr>${esc(r.met ? r.name : '?')}</b></button>`).join('')}</nav>`;
@@ -180,6 +182,7 @@ function actsColumn(g, w) {
     const jobs = jobsOn && !g.player.job && !offScreenWork(w) ? w.occupations.filter(o => o.place === g.player.loc) : []; // a scenario: apply on the phone
     const atHome = g.player.loc === playerHomeId;
     const rows = [
+        ...roomRows(g, w),
         ...apptActions(g, w),
         lifeActs(g, w),
         schoolActs(g, w),

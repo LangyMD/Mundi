@@ -1,6 +1,7 @@
 // The Journal: the facts the game noted, in order, stamped with day, time and place. Nothing here is written by
 // the AI; asked, the AI only rewrites one day's list as a first-person diary entry (kept for that day).
 import { esc, game, toast, notify, saveGame } from '../core/store.js';
+import { hereWith } from '../sim/interiors.js';
 import { getWorld, systemOn, deviceLook } from '../core/world.js';
 import { tr } from '../core/tr.js';
 import { lex } from '../core/lexicon.js';
@@ -11,7 +12,6 @@ import { diaryTtsButton } from './addons.js';
 import { fmtClock as hm } from '../core/fmt.js';
 import { facts, fill, factText, placeName, note } from '../sim/facts.js';
 import { quiet, personaName, chat } from '../st/bridge.js';
-import { presentAt } from '../sim/people.js';
 import { heardRumors, rumorSource } from '../sim/living.js';
 import { ACT } from './reg.js';
 // A fact as the player reads it, in the interface language.
@@ -166,7 +166,7 @@ Object.assign(ACT, {
         const text = String(m.mes ?? '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
         if (!text)
             return;
-        const here = presentAt(g, w, g.player.loc);
+        const here = hereWith(g, w);
         const who = here.map(r => r.avatar);
         const speaker = m.is_user ? '{u}' : String(m.name ?? '');
         note(g, `${speaker === '{u}' ? '{u}' : '{0}'} said: "{1}"`, [speaker === '{u}' ? '' : speaker, text.length > 180 ? `${text.slice(0, 177)}…` : text], who, g.player.loc, 'said');

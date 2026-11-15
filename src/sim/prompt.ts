@@ -1,6 +1,7 @@
 // What the AI knows about the scene right now. Injected as an extension prompt before every reply, so it works
 // with SillyTavern's normal generation (and with any preset). The world's lore lives in its lorebook instead.
 import { homeJobsLine } from './hometime.js';
+import { hereWith, scenePlace, elsewhereLine } from './interiors.js';
 import { dressLine } from './dress.js';
 import { approvalLine, couplesLine, rumorLines, activeWorldLore } from './living.js';
 import './longlife.js';   // people's lives over the weeks (runs by itself, day by day)
@@ -17,7 +18,7 @@ import { changeLines, closedWhy } from './placestate.js';
 import { UI } from '../core/store.js';
 import { weekday, hm, period, seasonOf } from './time.js';
 import { placeOf } from './places.js';
-import { presentAt, whereNow, OUT } from './people.js';
+import { whereNow, OUT } from './people.js';
 import { partyLine as houseLine } from './houseparty.js';
 import { feelings } from './needs.js';
 import { planLines } from './plans.js';
@@ -132,7 +133,8 @@ export function sceneBlocks(): Built[] {
     const w = g && getWorld(g.world);
     if (!g || !w) return [];
     const here = placeOf(g, w, g.player.loc);
-    const present = presentAt(g, w, g.player.loc);
+    const spot = scenePlace(g, w);   // the room you are in, when the place has rooms
+    const present = hereWith(g, w);
     const met = present.filter(r => r.met);
     const names = present.map(r => r.name);
     const pc = promptCfg();
@@ -141,8 +143,9 @@ export function sceneBlocks(): Built[] {
             `[World state — ${w.name}]`,
             ...scenarioLines(g, w),
             `Now: ${weekday(g.day)}, day ${g.day}, ${hm(g.minutes)} (${period(w, g.minutes).name.toLowerCase()}). Weather: ${weatherHere(g, w).name.toLowerCase()}. Season: ${seasonOf(g).name.toLowerCase()}.`,
-            `Place: ${here?.name ?? 'somewhere'}${here?.desc ? ` — ${here.desc}` : ''}${here && !here.home && closedWhy(g, here.id) !== null ? ` (closed${closedWhy(g, here.id) !== 'closed' ? `: ${closedWhy(g, here.id)}` : ''}; nobody is working here)` : here && !here.home && systemOn(w, 'living') && !openNow(g, w, here.id) ? ' (closed at this hour: the doors are shut; only staff, if anyone, is around)' : ''}`,
+            `Place: ${spot?.name ?? 'somewhere'}${spot?.desc ? ` — ${spot.desc}` : ''}${here && !here.home && closedWhy(g, here.id) !== null ? ` (closed${closedWhy(g, here.id) !== 'closed' ? `: ${closedWhy(g, here.id)}` : ''}; nobody is working here)` : here && !here.home && systemOn(w, 'living') && !openNow(g, w, here.id) ? ' (closed at this hour: the doors are shut; only staff, if anyone, is around)' : ''}`,
             names.length ? `Here with {{user}}: ${names.join(', ')}. Only they are in this scene; nobody else speaks or appears.` : 'Nobody else is here right now.',
+            ...(elsewhereLine(g, w) ? [elsewhereLine(g, w)] : []),
             ...(guestLine(g, present) ? [guestLine(g, present)] : []),
             ...(present.some(r => !r.met) ? [`Strangers to {{user}}: ${present.filter(r => !r.met).map(r => r.name).join(', ')}. They and {{user}} have never met: they do not know each other's names until they talk and introduce themselves.`] : []),
         ],

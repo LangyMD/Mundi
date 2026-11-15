@@ -2,6 +2,13 @@
 
 ## Unreleased (this fork)
 
+- **Rooms inside places:** a place in the world file can have an `interior` (floors, and rooms that are places of
+  their own with `in: <building>`). Arriving puts you in its entry; the other rooms are listed with the things to
+  do, and "Floor plan" shows the building with who is in each room. Walking between rooms takes no time. The scene
+  holds only the people in your room; staff are in the room their job names (`room` on the occupation), visitors
+  keep to the public rooms. Rooms can be `staff`, `private` or `locked`. What you can do follows the room (its tags,
+  and `rooms` on an action), and the AI is told the room and who is elsewhere in the building. No built-in world
+  has rooms yet; homes do not have them yet.
 - **Places that change:** This world → Places. Close a place for a while with a reason (or until you reopen it),
   take it off the map, rename it, or add to how it looks. The change lives in the save; the world file is not
   touched. People stop going to a closed or hidden place, the map and the scene follow, and the AI is told what

@@ -1,11 +1,12 @@
 // Clothes at work (sim/looks.ts has the rules): the facts of the moment for each person, the pictures of the look
 // someone wears now, and the words for each look read from the card generator's `outfits.json`.
 import { game, notify, nowAbs } from '../core/store.js';
+import { hereWith, scenePlace } from '../sim/interiors.js';
 import { getWorld } from '../core/world.js';
 import { activeTraits, pickSets, guessSets, setFolder, setTraits, traitDef } from '../sim/persontraits.js';
 import { fetchSprites, outfitOf, baseSpriteFolder } from '../st/bridge.js';
 import { placeOf, playerHomeId, isHome } from '../sim/places.js';
-import { presentAt, routineStep } from '../sim/people.js';
+import { routineStep } from '../sim/people.js';
 import { seasonOf } from '../sim/time.js';
 import { weatherHere } from '../sim/worldstate.js';
 import { dressAt } from '../sim/dress.js';
@@ -16,7 +17,7 @@ const NIGHT_FROM = 22 * 60, NIGHT_TO = 6 * 60;
 export function dressScene(g, w) {
     if (dressAt(g, g.player.loc))
         return [];
-    const loc = g.player.loc, here = placeOf(g, w, loc), present = presentAt(g, w, loc);
+    const loc = g.player.loc, here = scenePlace(g, w) ?? placeOf(g, w, loc), present = hereWith(g, w); // (the room, and who is in it)
     const wx = weatherHere(g, w);
     const name = String(wx.name ?? '').toLowerCase();
     const base = {

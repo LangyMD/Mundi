@@ -65,7 +65,7 @@ export const roomsOn = (g: Save | null | undefined, w: WorldDef): string[] => {
 export const placeOn = (g: Save | null | undefined, w: WorldDef, id: string) => !isScenario(w) || !w.places.some(p => p.id === id) || roomsOn(g, w).includes(id);
 export function pins(g: Save, w: WorldDef) {
     // (a place this game hid is off the map, unless you are standing in it)
-    const out: (Place & { home?: boolean; owner?: string })[] = [...w.places.filter(p => placeOn(g, w, p.id) && (!isHidden(g, p.id) || g.player.loc === p.id)).map(p => withState(g, p)), ...(isScenario(w) ? extraRooms(g) : [])];
+    const out: (Place & { home?: boolean; owner?: string })[] = [...w.places.filter(p => !(p as any).in && placeOn(g, w, p.id) && (!isHidden(g, p.id) || g.player.loc === p.id)).map(p => withState(g, p)), ...(isScenario(w) ? extraRooms(g) : [])];
     const mine = placeOf(g, w, playerHomeId);
     if (mine) out.push(mine);
     // (a guest with no bedroom of their own, zone '__guest', has no room to show)

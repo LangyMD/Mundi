@@ -1,11 +1,11 @@
 // The narrator at work (sim/narrate.ts has the words): gathers what the game knows about this moment, asks the AI
 // (or uses the ready-made line), and posts the result in the chat as the narrator's line.
 import { state, notify, game, toast, UI, type Save } from '../core/store.js';
+import { hereWith, scenePlace } from '../sim/interiors.js';
 import { getWorld, systemOn, type WorldDef } from '../core/world.js';
 import { aiLangNote } from '../core/i18n.js';
 import { chat, narratorLine, personaName, quiet } from '../st/bridge.js';
 import { placeOf } from '../sim/places.js';
-import { presentAt } from '../sim/people.js';
 import { weekday, hm, period } from '../sim/time.js';
 import { weatherHere, crowdLevel, crowdWord } from '../sim/worldstate.js';
 import { whyHereLines } from '../sim/daylife.js';
@@ -24,12 +24,12 @@ export function actionVoice(): ActionVoice {
 
 function factsNow(g: Save, w: WorldDef, extra: Partial<NarrFacts> & { kind: NarrFacts['kind'] }): NarrFacts {
     const here = placeOf(g, w, g.player.loc);
-    const present = presentAt(g, w, g.player.loc);
+    const present = hereWith(g, w);
     const home = !!here?.home;
     return {
         me: personaName(),
-        place: here?.name ?? 'somewhere',
-        desc: here?.desc ?? '',
+        place: scenePlace(g, w)?.name ?? here?.name ?? 'somewhere',
+        desc: scenePlace(g, w)?.desc ?? here?.desc ?? '',
         time: `${weekday(g.day)}, ${hm(g.minutes)} (${period(w, g.minutes).name.toLowerCase()})`,
         weather: weatherHere(g, w).name.toLowerCase(),
         crowd: home ? '' : crowdWord(crowdLevel(g, w, g.player.loc)),

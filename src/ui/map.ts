@@ -1,6 +1,8 @@
 // The world map: full screen, zoom and drag, a pin for every place. Hovering a pin opens a small card next to it
 // (what the place is, who is there; at your own place, what you can do). Clicking a pin goes there.
 import { lex, appRef } from '../core/lexicon.js';
+import { isRoom, buildingOf, enterRoom, canEnter, settleRoom } from '../sim/interiors.js';
+import { hereWith } from '../sim/interiors.js';
 import { safeUrl, setHtml } from '../core/safe.js';
 import { showTransition } from './lifeui.js';
 import { lockedOut } from '../sim/bills.js';
@@ -368,7 +370,10 @@ export const mapInput = {
 export const JOURNEY = { to: '', minutes: 0, camps: 0 };
 export async function travelTo(loc: string, road?: 'camp' | 'push') {
     const { g, w } = ctxW();
-    if (loc === g.player.loc) return;
+    // a room of a building: you go to the building, and walk in to that room
+    const room = isRoom(w, loc) ? loc : '';
+    if (room) loc = buildingOf(w, loc);
+    if (loc === g.player.loc) { if (room && !enterRoom(g, w, room)) { saveGame(); await syncScene(); notify(); } return; }
     if (state.generating) { toast('Wait until they finish speaking.', 'info'); return; }   // nobody walks out mid-sentence
     const mins = travelMinutes(g, w, g.player.loc, loc);
     const trip = journeyOf(g, w, g.player.loc, loc, mins);
@@ -383,6 +388,8 @@ export async function travelTo(loc: string, road?: 'camp' | 'push') {
     delete (g as any).traveling;
     JOURNEY.to = '';
     if (g.player.loc === from) g.player.loc = loc;   // unless something on the way moved you (passing out…)
+    delete (g.player as any).room; if (g.player.loc === loc && room && canEnter(g, w, room).ok) (g.player as any).room = room;
+    settleRoom(g, w);   // (a building with rooms: you come in at its entry)
     viewMap = null;
     msgs.forEach(m => toast(m, 'warn'));
     runPlans();
@@ -541,7 +548,7 @@ export async function doAction(id: string, say = false): Promise<string | false>
         if (!canAfford(g, a)) { toast('Not enough money.', 'info'); return false; }
         const tired = tooTired(g, w, Object.fromEntries(Object.entries(a.effects ?? {}).map(([k, v]) => [k, -v])), a.label.toLowerCase()); if (tired) { toast(tired, 'warn'); return false; }
         if (isDoing()) return false;
-        const before = presentAt(g, w, g.player.loc);   // who is here now: the action takes time, and people come and go meanwhile
+        const before = hereWith(g, w);   // who is here now: the action takes time, and people come and go meanwhile
         const where = g.player.loc;
         actionSound(a.effects, a.id);
         await doing(a.label, a.icon ?? '⏳', a.minutes);   // a moment on screen while the time passes
@@ -567,7 +574,7 @@ export async function doAction(id: string, say = false): Promise<string | false>
         }
         // who came in or left while it lasted: the AI is told, so the narration has them walk in (or be gone)
         const same = g.player.loc === where;
-        const after = presentAt(g, w, g.player.loc).map(r => r.name), was = before.map(r => r.name);
+        const after = hereWith(g, w).map(r => r.name), was = before.map(r => r.name);
         const moved = same ? cameAndWent(was, after) : '';
         if (moved) hint = `${hint.slice(0, -1)} ${moved}]`;
         const voice = actionVoice();
