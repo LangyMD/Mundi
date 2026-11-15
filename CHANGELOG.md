@@ -2,6 +2,10 @@
 
 ## Unreleased (this fork)
 
+- **Willow Lane (a new ready world):** a copy of Porto Alto with a new American suburban district, Willow Lane: 6
+  homes and 6 public places (school, café, market, pub, community center, park) with 93 rooms on floor plans, 15
+  new people, and day and night pictures for every room, building and floor. It is the first built-in world that
+  uses rooms inside places and homes. The neighborhood map picture is a plain layout drawing for now.
 - **Rooms inside homes:** a world file can give homes rooms too (`homes.plans`, named per address by
   `homes.zones[].interiors`, or `interior` on a kind of home). Your home and other people's then have a floor plan
   like a building. Bedrooms are handed to the household (a character can name theirs; a couple's room holds two; a

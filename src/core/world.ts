@@ -320,7 +320,7 @@ export const SCENARIO_SYSTEMS_OFF: SystemId[] = ['neighbors', 'social', 'craftin
 export const LIFESIM_APPS_OFF = ['factions', 'assets', 'workshop'];
 export const appsShown = (w: WorldDef): AppDef[] => appsOf(w).filter(a => a.on && !(isScenario(w) && SCENARIO_APPS_OFF.includes(a.id)) && !(gameMode(w) === 'lifesim' && LIFESIM_APPS_OFF.includes(a.id)) && (!appSystem(a.id) || systemOn(w, appSystem(a.id)!)) && (!DEFAULT_APPS.find(d => d.id === a.id)?.rpg || (gameMode(w) === 'rpg' && !!w.rpg?.classes?.length)));
 const registry = new Map<string, WorldDef>();
-export const BUILT_IN = ['modern', 'urban', 'medieval', 'house', 'manor'];
+export const BUILT_IN = ['modern', 'urban', 'medieval', 'house', 'manor', 'willowlane'];
 export type GameMode = 'lifesim' | 'rpg' | 'custom';
 // The RPG mode waits for a later update: while this is on, nothing of it can be chosen, made or played. Worlds made
 // for it are shown locked, any other world plays as Life-Sim, and its systems stay off. Turn it off to bring it back.
