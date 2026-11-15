@@ -14,8 +14,12 @@ export const NPC_NEEDS: NpcNeed[] = ['hunger', 'energy', 'social', 'fun', 'hygie
 export interface NpcState {
     n: Record<NpcNeed, number>;   // 0..100
     last: number;                 // the hour (absolute minutes / 60) simulated up to
-    /** the last thing that says something about their day: [what, hour] ('work': came off a shift; 'ate', 'nap', 'wash') */
+    /** the last thing that says something about their day: [what, hour] ('ate', 'nap', 'wash') */
     did?: [string, number];
+    /** the last hour they were at work */
+    work?: number;
+    /** what they chose for this stretch of free time: its key (day|step|third of the day), where, and why */
+    act?: { key: string; place: string; why: string };
 }
 type Doing = 'sleep' | 'work' | 'home' | 'out';
 
@@ -27,10 +31,10 @@ export const temper = (avatar: string, need: NpcNeed) => 0.8 + (hash(`${avatar}|
 
 // What an hour does, by what they are doing (per hour; + fills, − costs).
 const HOUR: Record<Doing, Record<NpcNeed, number>> = {
-    sleep: { hunger: -2, energy: 11, social: -1, fun: 0, hygiene: -1 },
-    work: { hunger: -5, energy: -6, social: 0, fun: -4, hygiene: -3 },
-    home: { hunger: -5, energy: -3.5, social: -5, fun: -2, hygiene: -3 },
-    out: { hunger: -5, energy: -5, social: 5, fun: 12, hygiene: -3 },
+    sleep: { hunger: -2, energy: 11, social: 0, fun: 0, hygiene: -1 },
+    work: { hunger: -5, energy: -6, social: 1, fun: -4, hygiene: -3 },
+    home: { hunger: -5, energy: -3.5, social: -4, fun: -2, hygiene: -3 },
+    out: { hunger: -5, energy: -5, social: 7, fun: 12, hygiene: -3 },
 };
 function doingAt(w: WorldDef, r: Resident, hour: number): Doing {
     const at = hour * 60; const h = hour % 24;
@@ -39,13 +43,55 @@ function doingAt(w: WorldDef, r: Resident, hour: number): Doing {
     if (t === 'work') return w.occupations.some(o => o.id === r.occupation) ? 'work' : 'out';
     return h >= 1 && h < 6 ? 'sleep' : 'out';   // (nobody is out all night, every night)
 }
+
+/* ---------- free time: what they feel like decides where they go ---------- */
+
+// An urgent need weighs much more than a mild one (like The Sims' commodities).
+const curve = (v: number) => ((100 - v) / 100) ** 2 * 3 + 0.1;
+const WHY: Record<string, string> = { hunger: 'came for something to eat', energy: 'staying in, worn out', social: 'out to see people', fun: 'out for some fun', hygiene: 'staying in to clean up', none: '' };
+/** Where this stretch of free time takes them, chosen once (and kept for about three hours) from how they are now.
+ *  `options`: the places open to them; `homeId`: staying in is a choice too ('' when it is not: a Home's rooms).
+ *  Null when there is nothing to choose from. */
+export function chooseSpot(g: Save, w: WorldDef, r: Resident, options: string[], at: number, stepHour: number, homeId: string): string | null {
+    const s = npcOf(g, w, r); const day = Math.floor(at / 1440), h = Math.floor((at % 1440) / 60);
+    const key = `${day}|${stepHour}|${Math.floor(h / 3)}`;
+    if (s.act?.key === key && (s.act.place === homeId || options.includes(s.act.place))) return s.act.place;
+    if (!options.length && !homeId) return null;
+    const n = s.n; const fav = new Set(r.leisure);
+    const want = { hunger: curve(n.hunger), energy: curve(n.energy), social: curve(n.social), fun: curve(n.fun), hygiene: curve(n.hygiene) };
+    let best: { place: string; score: number; why: string } | null = null;
+    const offer = (place: string, parts: Partial<Record<NpcNeed, number>>, taste: number) => {
+        let score = 0, top: NpcNeed | 'none' = 'none', topV = 0.6;   // (a reason is only given when a need really pulls)
+        for (const [k, weight] of Object.entries(parts) as [NpcNeed, number][]) { const v = want[k] * weight; score += v; if (v > topV) { topV = v; top = k; } }
+        score *= taste;
+        if (!best || score > best.score) best = { place, score, why: WHY[top] };
+    };
+    for (const id of options) {
+        const tags = w.places.find(p => p.id === id)?.tags ?? [];
+        const parts: Partial<Record<NpcNeed, number>> = { fun: 0.6, social: 0.6 };
+        if (tags.includes('food')) parts.hunger = 1;
+        if (tags.includes('bar')) parts.social = 1;
+        if (tags.includes('sport')) { parts.fun = 0.8; if (n.energy < 35) parts.fun = 0.2; }
+        if (tags.includes('leisure') && !tags.includes('food')) parts.fun = 1;
+        // each person has places they like more (their favorites, and a taste of their own), and the day varies a little
+        offer(id, parts, (fav.has(id) ? 1.25 : 1) * (0.8 + (hash(`${r.avatar}|likes|${id}`) % 41) / 100) * (0.9 + (hash(`${r.avatar}|${key}|${id}`) % 21) / 100));
+    }
+    if (homeId && n.energy < 30) offer(homeId, { energy: 0.9, hygiene: 0.4 }, 1);   // staying in is for the worn out: the world stays lively
+    if (!best) return null;
+    const pick = best as { place: string; score: number; why: string };
+    s.act = { key, place: pick.place, why: pick.why };
+    return pick.place;
+}
 // Someone met for the first time starts mid-life: how a person usually is at that hour, with their own variety.
 function fresh(r: Resident, hour: number): NpcState {
     const h = hour % 24; const v = (k: string, lo: number, hi: number) => lo + (hash(`${r.avatar}|start|${k}`) % (hi - lo + 1));
     return { n: { hunger: v('hunger', 45, 85), energy: lim(h < 7 ? 60 + h * 5 : 100 - (h - 7) * 4 + v('energy', -8, 8)), social: v('social', 45, 80), fun: v('fun', 40, 80), hygiene: v('hygiene', 55, 95) }, last: hour };
 }
 function oneHour(w: WorldDef, r: Resident, s: NpcState, hour: number, withPlayer: boolean) {
-    const d = doingAt(w, r, hour); const n = s.n;
+    let d = doingAt(w, r, hour); const n = s.n;
+    const stayedIn = d === 'out' && !!s.act && s.act.place.startsWith('home:');   // free time spent at home, by choice
+    if (stayedIn) d = 'home';
+    const eating = d === 'out' && !!s.act && (w.places.find(p => p.id === s.act!.place)?.tags ?? []).includes('food');
     const shared = !!(r as any).homeWith;   // lives with someone: home is not lonely
     for (const k of NPC_NEEDS) {
         let v = HOUR[d][k];
@@ -53,13 +99,14 @@ function oneHour(w: WorldDef, r: Resident, s: NpcState, hour: number, withPlayer
         if (k === 'social' && withPlayer && d !== 'sleep') v = Math.max(v, 0) + 8;
         n[k] = lim(n[k] + (v < 0 ? v * temper(r.avatar, k) : v));
     }
-    if (d === 'work') { s.did = ['work', hour]; if (n.hunger < 30) n.hunger = lim(n.hunger + 50); else if (n.energy < 12) n.energy = lim(n.energy + 12); return; }   // (lunch on the job says nothing about their day)
+    if (d === 'work') { s.work = hour; if (n.hunger < 30) n.hunger = lim(n.hunger + 50); else if (n.energy < 12) n.energy = lim(n.energy + 12); return; }   // (lunch on the job says nothing about their day)
     if (d === 'sleep') return;
     // looking after themselves: one thing an hour, the most pressing first
-    if (n.hunger < 35) { n.hunger = lim(n.hunger + 60); s.did = ['ate', hour]; }
+    if (n.hunger < (eating ? 60 : 35)) { n.hunger = lim(n.hunger + 60); s.did = ['ate', hour]; }
     else if (d === 'home' && n.energy < 25) { n.energy = lim(n.energy + 22); s.did = ['nap', hour]; }
     else if (d === 'home' && (n.hygiene < 40 || (n.hygiene < 75 && hour % 24 >= 6 && hour % 24 < 10))) { n.hygiene = 100; s.did = ['wash', hour]; }   // (and the morning wash)
     else if (d === 'home' && n.fun < 40) n.fun = lim(n.fun + 14);   // TV, a book, a game
+    else if (d === 'home' && n.social < 20) n.social = lim(n.social + 15);   // a call, a chat over the fence
     else if (d === 'out' && n.hygiene < 15) n.hygiene = lim(n.hygiene + 60);   // (a wash wherever they are)
 }
 const store = (g: Save): Record<string, NpcState> => ((g as any).npc ??= {});
@@ -72,10 +119,10 @@ export function npcOf(g: Save, w: WorldDef, r: Resident): NpcState {
     if (s.last > now) s.last = now;                       // (a restored older save)
     if (now - s.last > 48) s.last = now - 48;
     if (now > s.last) {
+        const from = s.last; s.last = now;   // (marked first: finding where they are may ask for their needs again)
         const here = whereNow(g, w, r) === g.player.loc;   // the player's company counts for the hour it is given
-        for (let h = s.last + 1; h <= now; h++) oneHour(w, r, s, h, h === now && here);
+        for (let h = from + 1; h <= now; h++) oneHour(w, r, s, h, h === now && here);
     }
-    s.last = now;
     return s;
 }
 onHour.push((g, w) => { if (npcOn(w)) for (const r of Object.values(g.cast)) npcOf(g, w, r); return []; });
@@ -99,9 +146,13 @@ export function npcFeels(g: Save, w: WorldDef, r: Resident): string[] {
 export function npcDay(g: Save, w: WorldDef, r: Resident): string {
     if (!npcOn(w)) return '';
     const s = npcOf(g, w, r); const now = hourNow(g);
-    if (!s.did || now - s.did[1] > 2) return '';
     const working = doingAt(w, r, now) === 'work';
-    return s.did[0] === 'work' ? (working ? 'in the middle of a work day' : 'just off work') : s.did[0] === 'nap' ? 'just up from a nap' : '';   // (a meal or a wash is not news)
+    // why they are where they are, when they chose it (free time)
+    const chose = !working && s.act && s.act.why && s.act.key.startsWith(`${Math.floor(now / 24)}|`) && s.act.key.endsWith(`|${Math.floor((now % 24) / 3)}`) ? s.act.why : '';
+    if (s.work !== undefined && now - s.work <= 2) return working ? 'in the middle of a work day' : chose ? `just off work, ${chose}` : 'just off work';
+    if (chose) return chose;
+    if (!s.did || now - s.did[1] > 2) return '';
+    return s.did[0] === 'nap' ? 'just up from a nap' : '';   // (a meal or a wash is not news)
 }
 // For the AI: how the people in the scene are doing. Background, not something to announce.
 export function npcLine(g: Save, w: WorldDef, here: Resident[]): string {

@@ -425,5 +425,41 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     const off = structuredClone(modern); off.id = 'nonpc'; off.features = { ...(off.features ?? {}), npclife: false }; W.registerWorld(off);
     ok(!npc.npcLine(g, off, [who]) && npc.npcWilling(g, off, who).delta === 0 && !npc.npcFeels(g, off, who).length, 'off in a world: nothing is said or used');
 }
+// free time: what they feel like decides where they go (only now; work and sleep never move)
+{
+    const npc = await D('sim/npcneeds.js'); const people = await D('sim/people.js');
+    seed(4); const g = open(fixture('v0.1.0-modern.json'));
+    const ce = await D('sim/cityevents.js'); const fe = await D('sim/festivals.js'); const dl = await D('sim/daylife.js');
+    const sat0 = g.day + ((6 - ((g.day - 1) % 7) + 7) % 7);   // a Saturday
+    const free = Object.values(g.cast).find(r => r.routine.weekend.some(s => s[1] === 'leisure'));
+    // an afternoon of free time with nothing else on (no city event, festival or errand)
+    let sat = sat0, hr = 12;
+    find: for (let wk = 0; wk < 6; wk++) for (let h = 11; h <= 17; h++) {
+        const d = sat0 + wk * 7, t = d * 1440 + h * 60; at(g, d, h * 60);
+        if (people.routineStep(free, t)[1] === 'leisure' && !ce.eventSpot(g, modern, free.avatar, t) && !fe.festivalSpot(g, modern, t, { map: people.homeMapOf(g, modern, free) }) && !dl.breakNow(g, modern, free)) { sat = d; hr = h; break find; }
+    }
+    const tagsOf = (id) => modern.places.find(p => p.id === id)?.tags ?? [];
+    const feel = (n) => { at(g, sat, hr * 60); g.social = { ...(g.social ?? {}), with: [], stays: [], appts: [] }; g.npc = { [free.avatar]: { n: { hunger: 80, energy: 80, social: 80, fun: 80, hygiene: 80, ...n }, last: Math.floor((sat * 1440 + hr * 60) / 60) } }; return people.whereNow(g, modern, free); };
+    if (people.routineStep(free, sat * 1440 + hr * 60)[1] === 'leisure') {
+        const hungry = feel({ hunger: 5 });
+        ok(tagsOf(hungry).includes('food'), `hungry: somewhere with food (${hungry})`);
+        ok(/something to eat/.test(npc.npcDay(g, modern, free)), `and the AI can be told why they are there ("${npc.npcDay(g, modern, free)}")`);
+        const worn = feel({ energy: 5 });
+        ok(worn.startsWith('home:'), `worn out: staying in (${worn})`);
+        const fine = feel({});
+        ok(!fine.startsWith('home:'), `feeling fine: out somewhere (${fine})`);
+        const again = people.whereNow(g, modern, free); g.npc[free.avatar].n.hunger = 0;
+        ok(again === fine && people.whereNow(g, modern, free) === fine, 'the choice holds for that stretch of time, whatever changes meanwhile');
+        const off = structuredClone(modern); off.id = 'nonpc2'; off.features = { ...(off.features ?? {}), npclife: false }; W.registerWorld(off);
+        const a1 = (feel({ hunger: 5 }), people.routineAt(g, off, free, sat * 1440 + hr * 60)), a2 = (feel({ energy: 5 }), people.routineAt(g, off, free, sat * 1440 + hr * 60));
+        ok(a1 === a2, 'turned off in a world: the usual pick, whatever they feel');
+        ok(people.routineAt(g, modern, free, (sat + 7) * 1440 + hr * 60) === people.routineAt(g, modern, free, (sat + 7) * 1440 + hr * 60), 'another day is still the same each time it is asked');
+    } else ok(false, 'the fixture has someone free on a Saturday afternoon');
+    // work is a commitment: needs never move it
+    const worker = Object.values(g.cast).find(r => modern.occupations.some(o => o.id === r.occupation) && r.routine.weekday.some(s => s[1] === 'work'));
+    const ws = worker.routine.weekday.find(s => s[1] === 'work')[0]; const mon = sat + 2;
+    at(g, mon, ws * 60 + 30); g.npc = { [worker.avatar]: { n: { hunger: 0, energy: 0, social: 0, fun: 0, hygiene: 0 }, last: Math.floor((mon * 1440 + ws * 60 + 30) / 60) } };
+    ok(people.routineAt(g, modern, worker, mon * 1440 + ws * 60 + 30) === modern.occupations.find(o => o.id === worker.occupation).place, 'someone exhausted and starving is still at work on their shift');
+}
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

@@ -8,6 +8,10 @@
   the people in the scene are doing ("How they are doing", AI context), the phone shows it on their profile, and the
   engine uses it: someone exhausted is less willing to do what you ask. No AI call. Where people go is still their
   routine. Can be turned off per world (People have needs).
+- **Free time with a mind of its own:** in their free time, people now go where they feel like going: somewhere with
+  food when hungry, home when worn out, out for fun or company otherwise, with favorite places of their own. The
+  choice holds for about three hours. Work, sleep, plans with you, festivals and city events are untouched. The AI is
+  told why someone is where they are when there is a reason ("came for something to eat").
 - **Who you are changes your needs:** traits, habits that became traits and hobby levels now change how fast needs
   drop and how much fills them (a cheerful person keeps their mood longer, an athletic one has more energy, a good
   cook gets more from a home meal, a film lover enjoys the cinema more), and how fast friendships and romance grow
