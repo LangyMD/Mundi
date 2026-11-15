@@ -534,6 +534,7 @@ body.mundi-open #toast-container { display: none !important; }
 #mundi-root .mu-wc-life { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
 #mundi-root .mu-wc-life li.is-on b { color: var(--accent); }
 #mundi-root .mu-wc-life li.is-off { opacity: .7; }
+#mundi-root .mu-wc-mods { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 2px; font-size: .9em; opacity: .9; }
 #mundi-root .mu-castmeter { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 8px 0; padding: 8px 12px; border-radius: 12px; background: color-mix(in srgb, var(--text) 5%, transparent); }
 #mundi-root .mu-castmeter .is-too { color: #ff8f6b; } #mundi-root .mu-castmeter .is-works { color: #ffcf6b; } #mundi-root .mu-castmeter .is-pleasant, #mundi-root .mu-castmeter .is-lively { color: #7ddf8f; }
 /* RPG: character sheet, quests, grimoire, the badge, creation */

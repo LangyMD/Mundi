@@ -2,12 +2,14 @@
 // The engine owns the numbers. The AI only plays the scenes: when you ask someone out or propose, the engine tells the
 // AI how ready that person is, the AI writes the reaction, and a tiny follow-up question ("did they accept?") lets
 // the engine apply the result. At night, the diary call also gives a verdict on the day's relationships.
+import { addTrait } from './persontraits.js';
 import { nowAbs, cfg } from '../core/store.js';
 import { social, bondOf, bump } from './social.js';
 import { approvalOf, approve } from './living.js';
 import { note } from './facts.js';
 import { romanceBlocked, canTryForBaby } from './family.js';
 import { getWorld, systemOn } from '../core/world.js';
+import { gainMult } from './modifiers.js';
 // Is a system on in this save's world (romance, children)?
 export const sysOn = (g, id) => systemOn(getWorld(g.world), id);
 const R = (g) => (g.romance ??= {});
@@ -16,7 +18,9 @@ export function romOf(g, avatar) {
     return r;
 }
 export const romValue = (g, avatar) => romOf(g, avatar).value;
-export function addRomance(g, avatar, delta) { const r = romOf(g, avatar); r.value = Math.max(0, Math.min(100, r.value + delta)); }
+// (what you gain counts for more with a romantic; what you lose stays as it is)
+export function addRomance(g, avatar, delta) { const r = romOf(g, avatar); const w = getWorld(g.world); if (delta > 0 && w)
+    delta *= gainMult(g, w, 'romance'); r.value = Math.max(0, Math.min(100, Math.round(r.value + delta))); }
 // keeps the older "partner" list (used by plans, the phone…) in step with the romance status
 function syncPartner(g, avatar) {
     const p = social(g).partner;
@@ -142,6 +146,7 @@ export function endRelationship(g, avatar, name) {
     syncPartner(g, avatar);
     bump(g, avatar, was === 'married' ? -30 : -20);
     approve(g, avatar, -10);
+    addTrait(g, null, avatar, 'heartbroken', { source: 'event', days: was === 'married' ? 14 : 7, note: was === 'married' ? 'the divorce' : 'the breakup' }); // (they take it hard for a while: sim/needtraits.ts)
     note(g, was === 'married' ? '{u} and {0} got divorced.' : '{u} broke up with {0}.', [name], [avatar], g.player.loc, 'love');
     return was === 'married' ? `You and ${name} are divorced.` : `You and ${name} broke up.`;
 }

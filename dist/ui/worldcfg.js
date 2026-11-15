@@ -5,10 +5,13 @@ import { tabPlaces } from './placesui.js';
 import { bondOf } from '../sim/social.js';
 import { state, notify, esc, game, toast, saveGame, cfg } from '../core/store.js';
 import { DIFFICULTIES, difficultyOf } from '../sim/bills.js';
-import { isCustom, getWorld, activeStatuses, gameMode, GAME_MODES, systemOn, isScenario, homeNeedsOn } from '../core/world.js';
+import { isCustom, getWorld, activeStatuses, gameMode, GAME_MODES, systemOn, isScenario, homeNeedsOn, optionalNeeds, optNeedOn } from '../core/world.js';
 import { dressHtml } from './dressui.js';
 import { homeJobOf, SHIFTS, DAYS } from '../sim/hometime.js';
 import { homeSettingsHtml } from './homeui.js';
+import { modifierLines } from '../sim/modifiers.js';
+import { personTraitsHtml } from './traitsui.js';
+import { PLAYER } from '../sim/persontraits.js';
 import { ctx, thumb, characters, charOf, personaThumb, personaName, lorebooks, chatLore, bindChatLore, createLorebook } from '../st/bridge.js';
 import { homeAddress, placeOf } from '../sim/places.js';
 import { resident, homeSpot, takenHomes, syncScene, currentEntry, applyTie } from '../sim/game.js';
@@ -176,7 +179,7 @@ function tabRules(g, w) {
             <div class="mu-heropick is-start mu-diff">${DIFFICULTIES.map(d => `<button class="mu-herocard ${difficultyOf(g).id === d.id ? 'is-on' : ''}" data-act="wc-diff" data-v="${esc(d.id)}"><b>${d.name}</b><p>${d.desc}</p></button>`).join('')}</div></section>
         ${systemOn(w, 'romance') ? `<section class="mu-wc-sec"><h4>Love</h4><label class="mu-check"><input type="checkbox" data-input="wc-poly" ${c.poly ? 'checked' : ''}><span>Open relationships (polyamory)<small>No jealousy: you can date several people at once, freely, and everyone knows. Off: a new romance hurts the partners you already have.</small></span></label></section>` : ''}
         ${lifeSection(g, w)}
-        <section class="mu-wc-sec"><h4>Needs</h4>${list(activeStatuses(w).map(s => `${s.icon} ${s.name}`))}</section>
+        <section class="mu-wc-sec"><h4>Needs</h4>${list(activeStatuses(w, g).map(s => `${s.icon} ${s.name}`))}${systemOn(w, 'needs') ? needsExtras(g, w) : ''}</section>
         <section class="mu-wc-sec"><h4>Places</h4>${list(w.places.map(p => p.name))}</section>
         <section class="mu-wc-sec"><h4>Jobs</h4><ul class="mu-lib-jobs">${w.occupations.map(o => `<li><b>${esc(o.name)}</b> <small>${o.ranks.map(r => esc(r.name)).join(' → ')}</small></li>`).join('')}</ul></section>
         ${WC.adv ? `<section class="mu-wc-sec"><h4>Advanced settings</h4>
@@ -414,9 +417,48 @@ Object.assign(INPUT, {
         return; cfg(g).poly = el.checked || undefined; saveGame(); notify(); },
     'wc-needs': (el) => { const g = game(); if (!g)
         return; cfg(g).needs = el.checked; saveGame(); refreshPrompt(); notify(); },
+    // an extra need, on or off for this game (it starts fresh each time it is turned on)
+    'wc-optneed': (el) => {
+        const g = game();
+        const w = g && getWorld(g.world);
+        const id = el.dataset.id;
+        if (!g || !w)
+            return;
+        const c = cfg(g);
+        const l = (c.optNeeds ??= []);
+        const i = l.indexOf(id);
+        if (el.checked && i < 0) {
+            l.push(id);
+            const s = w.statuses.find(x => x.id === id);
+            if (s)
+                g.player.stats[id] = s.start;
+            if (g.tick)
+                delete g.tick[`decay:${id}`];
+        }
+        if (!el.checked && i >= 0)
+            l.splice(i, 1);
+        saveGame();
+        refreshPrompt();
+        notify();
+    },
+    'wc-fade': (el) => { const g = game(); if (!g)
+        return; cfg(g).fade = el.checked ? undefined : false; saveGame(); notify(); },
+    'wc-bondfade': (el) => { const g = game(); if (!g)
+        return; cfg(g).bondFade = el.checked || undefined; saveGame(); notify(); },
     'wc-cfg': (el) => { const g = game(); if (!g)
         return; cfg(g)[el.dataset.k] = Number(el.value); saveGame(); notify(); },
 });
+// Needs you can add to a game (a social life…), friendships that fade, and what your traits are doing to all of it.
+function needsExtras(g, w) {
+    const opt = optionalNeeds(w).filter(s => s.id !== 'intimacy' || systemOn(w, 'romance'));
+    const lines = modifierLines(g, w);
+    return `${opt.length ? `<h4>Extra needs</h4>${opt.map(s => `<label class="mu-check"><input type="checkbox" data-input="wc-optneed" data-id="${esc(s.id)}" ${optNeedOn(g, s.id) ? 'checked' : ''}><span>${esc(s.icon)} ${esc(s.name)}<small>${esc(OPT_HINT[s.id] ?? 'An extra need for this game.')}</small></span></label>`).join('')}` : ''}
+        ${optNeedOn(g, 'intimacy') && opt.some(s => s.id === 'intimacy') ? `<label class="mu-check"><input type="checkbox" data-input="wc-fade" ${cfg(g).fade !== false ? 'checked' : ''}><span>Fade to black<small>The AI is told to cut away from intimate moments instead of describing them.</small></span></label>` : ''}
+        ${systemOn(w, 'social') ? `<label class="mu-check"><input type="checkbox" data-input="wc-bondfade" ${cfg(g).bondFade ? 'checked' : ''}><span>Friendships fade without contact<small>After a week with no word, a friendship loses a point a day (never below an acquaintance; partners keep theirs).</small></span></label>` : ''}
+        <h4>You, lately</h4><p class="mu-muted">The traits you have gained in this game (the same kind the people of the world gain). They change your needs like the traits you chose at the start.</p>${personTraitsHtml(g, w, PLAYER)}
+        ${lines.length ? `<h4>What your traits change</h4><ul class="mu-wc-mods">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}`;
+}
+const OPT_HINT = { intimacy: 'Closeness: a hug, cuddling, a kiss, making love (with people close enough, who decide for themselves), or time alone. It shows what you can do with who is here. Left empty, it wears your mood down.', social: 'Drops while you are awake; talking to people, texting, a drink out and running into friends fill it. Left empty, it wears your mood down.' };
 // Home: needs, if you want them (off by default): hunger, thirst, mood and hygiene drop with time, and you look after
 // them around the house. No energy, and nothing bad happens when one runs out: the AI is told how you feel.
 function tabNeeds(g, w) {
@@ -427,6 +469,6 @@ function tabNeeds(g, w) {
             <label class="mu-switch-row mu-needs-switch"><span>${on ? 'On' : 'Off'}</span><span class="mu-xswitch"><input type="checkbox" class="mu-toggle" data-input="wc-needs" ${on ? 'checked' : ''}><i></i></span></label>
             <p class="mu-muted">Hunger, thirst, mood and hygiene drop as time passes, and you look after them around the house: eat in the kitchen, wash up in the bathroom, watch TV in the living room… They show under the clock, and the AI is told when one is low. There is no energy to look after, and nothing bad happens when one runs out.</p>
             ${on ? `<div class="mu-chips">${list.map(s => `<span class="mu-chip">${esc(s.icon)} ${esc(s.name)} · ${Math.round(g.player.stats[s.id] ?? s.start)}</span>`).join('')}</div>
-            <label class="mu-field slider"><span>How fast needs drop · ${c.decay ?? 1}×</span><input type="range" min="0.25" max="3" step="0.25" value="${c.decay ?? 1}" data-input="wc-cfg" data-k="decay"></label>` : ''}
+            <label class="mu-field slider"><span>How fast needs drop · ${c.decay ?? 1}×</span><input type="range" min="0.25" max="3" step="0.25" value="${c.decay ?? 1}" data-input="wc-cfg" data-k="decay"></label>${needsExtras(g, w)}` : ''}
         </section>`;
 }

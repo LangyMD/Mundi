@@ -2,6 +2,49 @@
 
 ## Unreleased (this fork)
 
+- **Traits for the Social and Intimacy needs:** five more of the traits people gain in a game. Social butterfly
+  (comes from coffees and chats together), Loner, Affectionate (comes from hugs, cuddles and kisses with that
+  person), Reserved, and Glowing (a day, for both of you, after a welcomed cuddle, kiss or making love). For you,
+  a gained trait changes your needs through the same table as the traits chosen at the start (a social butterfly
+  misses company 25% sooner and gets 20% more from it; a loner misses it 30% later; affectionate and reserved do
+  the same for intimacy), and This world › Needs has "You, lately" to see and set them. For the people of the
+  world, a gained trait counts like one read from their card (a social butterfly's own Social need drops faster
+  and they go out more). When you try to be close, an affectionate person is more ready, a reserved or heartbroken
+  one less, and someone sick, hurt or exhausted is up for a hug at most; the AI is told why. A breakup leaves them
+  heartbroken for a week (a divorce: two).
+- **The people of the world have needs:** hunger, energy, company, fun and hygiene, moved hour by hour by what their
+  day already has them doing (asleep, at work, at home, out), each person a little different. They look after
+  themselves, so what shows is the texture of a day: tired after a shift, hungry, bored, lonely. The AI is told how
+  the people in the scene are doing ("How they are doing", AI context), the phone shows it on their profile, and the
+  engine uses it: someone exhausted is less willing to do what you ask. No AI call. Where people go is still their
+  routine. Can be turned off per world (People have needs).
+- **Free time with a mind of its own:** in their free time, people now go where they feel like going: somewhere with
+  food when hungry, home when worn out, out for fun or company otherwise, with favorite places of their own. The
+  choice holds for about three hours. Work, sleep, plans with you, festivals and city events are untouched. The AI is
+  told why someone is where they are when there is a reason ("came for something to eat").
+- **People meet each other:** family, couples and friends who end up in the same place in their free time keep each
+  other company; now and then it is remembered ("Bianca and Marco spent time together at the Beach"), so it reaches
+  their memories and the rumors. And their own news stays on their mind for a few days (an engagement, a breakup, a
+  promotion): the AI is told, and it changes how willing they are.
+- **People take after their character cards:** a card that says outgoing, shy, lazy, athletic, tidy, a foodie, a
+  bookworm, a party-goer, a homebody or outdoorsy (in plain words; no AI call) changes how fast that person's needs
+  move and which places pull them in their free time.
+- **Who you are changes your needs:** traits, habits that became traits and hobby levels now change how fast needs
+  drop and how much fills them (a cheerful person keeps their mood longer, an athletic one has more energy, a good
+  cook gets more from a home meal, a film lover enjoys the cinema more), and how fast friendships and romance grow
+  (charming, kind, shy, romantic). This world → World → Needs lists what your traits are doing. Always between half
+  and double; a custom world can bring its own table (`modifiers` in its JSON).
+- **A social need, if you want it:** This world → World → Needs → Extra needs (in a Home: the Needs tab). Off by
+  default, chosen per game. It drops while you are awake; talking to people, texting, running into friends and a
+  drink out fill it; left empty, loneliness wears your mood down.
+- **An intimacy need, if you want it:** the same place, off by default, chosen per game (needs romance on in the
+  world). With it on, the things to do include being close to who is here: a hug with a friend, cuddling or a kiss
+  with a crush, making love with a partner when you are alone at home, or private time alone. They decide for
+  themselves, from the game's own numbers (romance, bond, what they think of you, whether they are at work): the AI
+  is told whether they welcomed it or turned it down and only narrates that. No AI call. Never with family beyond a
+  hug. "Fade to black" (on by default) tells the AI to cut away rather than describe.
+- **Friendships can fade:** the same place, off by default. After a week with no contact, a friendship loses a point
+  a day, never below an acquaintance; partners keep theirs.
 - **World creator › Rooms:** a new tab to give a place rooms inside, or to make a plan of rooms for homes, without
   editing the world file. Pick what to edit, add floors (each with an optional picture of the plan), add rooms and
   drag their boxes into place. A room has a name, a description, tags (the kinds of room things to do can ask

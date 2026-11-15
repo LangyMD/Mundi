@@ -11,6 +11,7 @@ import { approvalOf } from './living.js';
 import { friendTier } from './romance.js';
 import { isWorking, isSleeping } from './plans.js';
 import { nowAbs } from '../core/store.js';
+import { npcWilling } from './npcneeds.js';
 
 /* ---------- words ---------- */
 
@@ -138,6 +139,8 @@ export function willingness(g: Save, w: WorldDef, r: Resident, ask: RequestHit):
     if (isWorking(w, r, now)) { score -= 15; why.push(`${r.name} is at work right now`); }
     if (isSleeping(r, now)) { score -= 10; why.push('it is very late'); }
     if (ask.order) { score -= 10; why.push('it was put as an order, which people resent'); }
+    const state = npcWilling(g, w, r);   // how their own day left them (tired, hungry, lonely)
+    if (state.delta) { score += state.delta; why.push(state.why); }
     const need = NEED[ask.size];
     const lean = score >= need + 20 ? 'yes' : score >= need ? 'likely' : score >= need - 15 ? 'unsure' : 'no';
     return { score: Math.round(score), need, lean, why };

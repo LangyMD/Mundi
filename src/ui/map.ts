@@ -27,6 +27,7 @@ import { planOn, floorsOn, planTarget, unplaced, floorOf } from '../sim/plan.js'
 import { presentAt, whereNow } from '../sim/people.js';
 import { cameAndWent } from '../sim/intent.js';
 import { togetherDid } from '../sim/persontraits.js';
+import { closeWith } from '../sim/needtraits.js';
 import { narrate, arriveLevel, actionVoice } from './narrator.js';
 import { writeDiary, diaryOn, markDayStart } from '../sim/diary.js';
 import { openWork, diaryWaiting, diaryReady } from './relui.js';
@@ -36,6 +37,7 @@ import { stayOf } from './events.js';
 import { actionSound, lifeSound } from './sfx.js';
 import { refreshPrompt } from '../sim/prompt.js';
 import { applyAction, canAfford, money, actionsHere, addStatus, tooTired } from '../sim/needs.js';
+import { closeOutcome } from '../sim/intimacy.js';
 import { shiftsToPromote, isOpen, fits, hire, rankOf, pendingBranch, shiftLeft } from '../sim/work.js';
 import { advance, weekday, hm } from '../sim/time.js';
 import { syncScene } from '../sim/game.js';
@@ -549,6 +551,18 @@ export async function doAction(id: string, say = false): Promise<string | false>
         if (!canAfford(g, a)) { toast('Not enough money.', 'info'); return false; }
         const tired = tooTired(g, w, Object.fromEntries(Object.entries(a.effects ?? {}).map(([k, v]) => [k, -v])), a.label.toLowerCase()); if (tired) { toast(tired, 'warn'); return false; }
         if (isDoing()) return false;
+        // being close to someone (the intimacy need): the engine decides whether they want it; a no ends it here.
+        // The answer is the engine's, so the one asked replies with it (not the narrator, who is not told it).
+        const close = closeOutcome(g, w, a);
+        const voice = close ? (actionVoice() === 'off' ? 'off' : 'reply') : actionVoice();
+        if (close && !close.ok) {
+            advance(g, w, 2).forEach(m => toast(m, 'warn'));
+            toast(close.toast, 'info'); saveGame(); await syncScene();
+            if (state.view === 'scene') setPrompt('mundi_roll', close.hint);
+            if (!say && voice === 'reply') narrateNow(a.label);
+            notify();
+            return close.hint;
+        }
         const before = hereWith(g, w);   // who is here now: the action takes time, and people come and go meanwhile
         const where = g.player.loc;
         actionSound(a.effects, a.id);
@@ -560,7 +574,8 @@ export async function doAction(id: string, say = false): Promise<string | false>
         afterEvent(g, w, a);
         practice(g, w, a, roll ? roll.grade.includes('success') : null, roll?.grade === 'critical-success').forEach(m => toast(m, 'success'));
         // done with the people here, often enough, it rubs off on them (sim/persontraits.ts)
-        togetherDid(g, w, a.label, before.filter(r => r.met)).forEach(m => toast(m, 'info'));
+        // (being close is with one person, not with everyone in the room)
+        togetherDid(g, w, a.label, before.filter(r => r.met && (!closeWith(a.id) || r.avatar === closeWith(a.id)))).forEach(m => toast(m, 'info'));
         runPlans();
         saveGame();
         await syncScene();
@@ -571,14 +586,13 @@ export async function doAction(id: string, say = false): Promise<string | false>
             hint = `[Just now {{user}} tried to ${a.label.toLowerCase()}: ${gradeName(roll.grade).toLowerCase()}. ${roll.text} Narrate it in that light if it comes up.]`;
         } else {
             toast(`${a.name}: done.`, 'success');
-            hint = `[Just now {{user}} chose to ${a.label.toLowerCase()}. Narrate how it goes, in the scene.]`;
+            hint = close?.hint ?? `[Just now {{user}} chose to ${a.label.toLowerCase()}. Narrate how it goes, in the scene.]`;
         }
         // who came in or left while it lasted: the AI is told, so the narration has them walk in (or be gone)
         const same = g.player.loc === where;
         const after = hereWith(g, w).map(r => r.name), was = before.map(r => r.name);
         const moved = same ? cameAndWent(was, after) : '';
         if (moved) hint = `${hint.slice(0, -1)} ${moved}]`;
-        const voice = actionVoice();
         if (!say && voice !== 'reply' && voice !== 'off' && state.view === 'scene' && !state.generating) {
             // the narrator tells it (not whoever happens to be in the room), with who came and went meanwhile
             const told = await narrate(voice, { kind: 'action', action: a.label, minutes: a.minutes, result: roll ? `${gradeName(roll.grade)}. ${roll.text}` : '',

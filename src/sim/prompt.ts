@@ -62,6 +62,7 @@ import { mentorLine } from './mentors.js';
 import './letters.js';
 import './journey.js';
 import { systemOn, blockSystem, isScenario, SCENARIO_STARTS, type WorldDef } from '../core/world.js';
+import { npcLine } from './npcneeds.js';
 
 export const PROMPT_KEY = 'mundi_scene';
 
@@ -83,6 +84,7 @@ export const BLOCKS: Block[] = [
     { id: 'needs', name: 'How you feel', desc: 'Hunger, tiredness… only what stands out.', cut: 6 },
     { id: 'diary', name: 'Diary', desc: 'The last two days of your diary.', cut: 5 },
     { id: 'lore', name: 'World lore', desc: 'World lore that switches on with weather, time or place.', cut: 5 },
+    { id: 'npcstate', name: 'How they are doing', desc: 'Whether the people here are tired, hungry, lonely, bored, just off work… (from their own day).', cut: 4 },
     { id: 'feelings', name: 'Their feelings', desc: 'Feelings with an end date, like "upset: you stood them up".', cut: 4 },
     { id: 'you', name: 'About you', desc: 'How fit you look and your life goal (RPG: level, class, titles, hit points).', cut: 3 },
     { id: 'approval', name: 'Approval', desc: 'What people here think of how you behave.', cut: 2 },
@@ -156,6 +158,7 @@ export function sceneBlocks(): Built[] {
         plans: planLines(g, present, w),
         focus: [eventLine(g, w), combatLine(g, w), prisonLine(g, w), ...towerLines(g, w), ...contractLines(g, w), ...institutionLines(g, w), focusLine(g, w, present), ...whyHereLines(g, w, present), ...questLines(g)],
         feelings: [feelingLine(g, met)],
+        npcstate: [npcLine(g, w, present)],
         you: [(g.player as any).bio ? `About {{user}} in this world: ${(g.player as any).bio}` : '', sheetLine(g, w), afflictionLine(g, w), ...artifactLines(g, w), partyLine(g, w), standingLine(g, w), bountyLine(g, w), tradeLine(g, w), holdingsLine(g, w), habitLine(g, w), hobbyLine(g, w), petLine(g, w), mentorLine(g, w, present.map(r => r.avatar)), physiqueLine(g), aspirationOf(g) && systemOn(w, 'goals') ? `{{user}}'s life goal: ${aspirationOf(g)!.name.toLowerCase()}.` : ''],
         solo: [soloLine(g, present)],
         approval: [approvalLine(g, met)],

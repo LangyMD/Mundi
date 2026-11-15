@@ -115,7 +115,7 @@ export const PRESETS = {
             { id: 'x-workout', name: 'Workout', label: 'Work out', icon: '🏋️', cost: 15, minutes: 90, tags: ['sport'], effects: { energy: -25, hygiene: -30, mood: 4, thirst: -10 },
                 roll: roll(9, ['Athletic', 'Strong', 'Sports'], 'A great workout.', { mood: 6 }, null, 'A sloppy workout; your heart was not in it.', { mood: -2 }) },
             { id: 'x-run', name: 'Run', label: 'Go for a run', icon: '👟', cost: 0, minutes: 40, tags: ['leisure'], notTags: ['sport', 'indoor'], effects: { energy: -15, hygiene: -20, mood: 6, thirst: -10 } },
-            { id: 'x-drinks', name: 'Drinks', label: 'Have a drink at the bar', icon: '🍸', cost: 12, minutes: 45, tags: ['bar'], effects: { mood: 10, thirst: 10, energy: -3 } },
+            { id: 'x-drinks', name: 'Drinks', label: 'Have a drink at the bar', icon: '🍸', cost: 12, minutes: 45, tags: ['bar'], effects: { mood: 10, thirst: 10, energy: -3, social: 15 } },
         ],
         breakables: [
             { id: 'shower', name: 'the shower', blocks: ['shower', 'basin'] },
@@ -251,6 +251,13 @@ export const PRESETS = {
         repairCost: 8,
     },
 };
+// Needs a game can add (off unless turned on for that game).
+export const OPTIONAL_NEEDS = [
+    { id: 'social', name: 'Social', icon: '💬', color: '#ff7eb6', start: 70, max: 100, hud: true, optional: true, decay: { amount: 3, everyMinutes: 60, awakeOnly: true },
+        zero: { text: 'You have been on your own for too long: the loneliness weighs on your mood.', drain: { status: 'mood', amount: 2, everyMinutes: 60 } } },
+    { id: 'intimacy', name: 'Intimacy', icon: '💗', color: '#e7489a', start: 60, max: 100, hud: true, optional: true, decay: { amount: 2, everyMinutes: 60, awakeOnly: true },
+        zero: { text: 'You miss being close to someone, and it weighs on your mood.', drain: { status: 'mood', amount: 1, everyMinutes: 60 } } },
+];
 const styleId = (w) => (w.style ?? ((w.kind || '').toLowerCase().includes('modern') ? 'modern' : (w.kind || 'modern').toLowerCase()));
 export const presetOf = (w) => PRESETS[styleId(w)] ?? PRESETS.modern;
 // Fills what a world lacks from its style's preset (older worlds, and worlds made before these were editable).
@@ -393,6 +400,22 @@ export function upgradeWorld(w) {
             s.zero = { ...(s.zero ?? {}), crisis: structuredClone(c) };
         }
         w.presetCrises = true;
+    }
+    // optional needs (a social life): an older world gets them once, off until a game turns them on
+    // (`presetOptNeeds`: the ones this world was already offered, so one removed in the creator stays removed)
+    {
+        const had = (w.presetOptNeeds ??= w.presetNeeds2 ? ['social'] : []);
+        for (const s of OPTIONAL_NEEDS)
+            if (!had.includes(s.id)) {
+                had.push(s.id);
+                if (!w.statuses?.length || w.statuses.some(x => x.id === s.id))
+                    continue;
+                const n = structuredClone(s);
+                if (n.zero?.drain && !w.statuses.some(x => x.id === n.zero.drain.status))
+                    delete n.zero.drain;
+                w.statuses.push(n);
+            }
+        delete w.presetNeeds2;
     }
     return w;
 }

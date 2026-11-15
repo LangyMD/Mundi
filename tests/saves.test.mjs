@@ -38,7 +38,8 @@ function play(g, w, days) {
         if (ui) { ui.hud.hudHtml(); ui.phone.P.open = true; for (const app of ['home', 'messages', 'people', 'jobs', 'bank', 'homes', 'social', 'plans', 'journal', 'shop', 'goals']) { ui.phone.P.app = app; ui.phone.phoneHtml(); } ui.phone.P.open = false; }
     }
     ok(Number.isFinite(g.player.money), 'money is a number');
-    for (const s of w.statuses) ok(g.player.stats[s.id] >= 0 && g.player.stats[s.id] <= s.max, `need ${s.id} in range (${g.player.stats[s.id]})`);
+    // (an optional need has no value until a game turns it on)
+    for (const s of w.statuses.filter(s => !s.optional)) ok(g.player.stats[s.id] >= 0 && g.player.stats[s.id] <= s.max, `need ${s.id} in range (${g.player.stats[s.id]})`);
 }
 
 const priv = path.join(here, 'fixtures', 'private');   // real saves, kept only on your machine (not in git)
