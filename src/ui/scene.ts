@@ -150,8 +150,11 @@ function background(g: Save, w: WorldDef) {
     if (isOuting(g.player.loc)) return bgStyle(outingOf(g)?.bg ?? '');   // Home, out of the house: the background you chose
     const p = scenePlace(g, w);   // (the room's own picture, in a building with rooms)
     if (!p) return '';
+    // a room with a picture of its own (in a building or a home with rooms)
+    if ((p as any).building && p.bg) { const own = pictureAt(w, g.minutes, p.bg, (p as any).bgs); if (own) return `background-image:url('${worldFile(w, own)}');background-size:cover;background-position:center`; }
+    const hid = String((p as any).building ?? p.id);   // (a home room: the home it is in)
     if (p.home) {
-        const kind = w.homes.kinds[p.id === 'home:player' ? g.player.home.kind : (w.homes.zones.find(z => z.id === (g.cast[p.id.slice(5)]?.home.zone ?? (g as any).vacated?.home?.zone))?.kind ?? 'apartment')];   // (a room a guest just left: its own picture)
+        const kind = w.homes.kinds[hid === 'home:player' ? g.player.home.kind : (w.homes.zones.find(z => z.id === (g.cast[hid.slice(5)]?.home.zone ?? (g as any).vacated?.home?.zone))?.kind ?? 'apartment')];   // (a room a guest just left: its own picture)
         const img = kind && pictureAt(w, g.minutes, kind.image, kind.images);   // the picture of this part of the day, if it has one
         if (img) return `background-image:url('${worldFile(w, img)}');background-size:cover;background-position:center`;
     }

@@ -1,7 +1,7 @@
 // Statuses (life, energy, hunger…) and the actions that change them. Everything comes from the world's data:
 // which statuses exist, how fast they drop, what happens at zero and what each action costs and gives.
 import { eventActions } from './cityevents.js';
-import { roomNow, fitsRoom } from './interiors.js';
+import { roomNow, fitsRoom, scenePlace } from './interiors.js';
 import { onAction, decayMods } from './hooks.js';
 import { nowAbs, cfg } from '../core/store.js';
 import { billNews, cutReason, priceOf } from './bills.js';
@@ -136,7 +136,7 @@ export function actionsHere(g, w) {
     const atHome = g.player.loc === playerHomeId;
     // in a building with rooms, the room you are in decides (its tags, and the actions that name a kind of room)
     const room = roomNow(g, w);
-    const tags = placeOf(g, w, room || g.player.loc)?.tags ?? [];
+    const tags = (room ? scenePlace(g, w) : placeOf(g, w, g.player.loc))?.tags ?? [];
     const on = new Set(activeStatuses(w, g).map(s => s.id));
     // an action only about needs that are not in play (seeing a doctor in Life-Sim) is left out
     // (a scenario keeps them all: in one house, what you do is part of the scene even with needs off)

@@ -9,35 +9,37 @@ import { syncScene } from '../sim/game.js';
 import { presentAt } from '../sim/people.js';
 import { placeOf } from '../sim/places.js';
 import { pictureAt } from '../sim/daynight.js';
-import { interiorOf, roomsOf, roomNow, roomOfPerson, accessOf, canEnter, enterRoom } from '../sim/interiors.js';
+import { spotAt, roomNow, roomOfPerson, canEnter, enterRoom, bedrooms, type RoomPlace } from '../sim/interiors.js';
 
 const RM = { plan: false, floor: '' };
-const lock = (g: Save, w: WorldDef, id: string) => (canEnter(g, w, id).ok ? '' : accessOf(w, id) === 'staff' ? 'Staff only' : accessOf(w, id) === 'locked' ? 'Locked' : 'Private');
+const lock = (g: Save, w: WorldDef, p: RoomPlace) => (canEnter(g, w, p.id).ok ? '' : p.access === 'staff' ? 'Staff only' : p.access === 'locked' ? 'Locked' : 'Private');
+// whose bedroom it is, in a home ("Mia's")
+const whose = (g: Save, w: WorldDef, id: string) => { const o = bedrooms(g, w, g.player.loc)[id] ?? []; return o.length ? o.map(a => (a === '__you' ? 'Yours' : `${g.cast[a]?.name ?? ''}'s`)).join(' & ') : ''; };
 const whoIn = (g: Save, w: WorldDef) => { const by: Record<string, { avatar: string; name: string; met: boolean }[]> = {}; for (const r of presentAt(g, w, g.player.loc)) (by[roomOfPerson(g, w, r, g.player.loc)] ??= []).push(r); return by; };
 
 // Rows for the "Things to do" column: the other rooms of this building.
 export function roomRows(g: Save, w: WorldDef): string[] {
-    const rooms = roomsOf(w, g.player.loc); if (rooms.length < 2) return [];
+    const rooms = spotAt(g, w, g.player.loc)?.rooms ?? []; if (rooms.length < 2) return [];
     const now = roomNow(g, w), by = whoIn(g, w);
     return [`<button class="mh-act mh-glass is-rooms" data-act="rm-plan"><i>${icon('map')}</i><b>Floor plan</b><small>${esc(rooms.find(r => r.id === now)?.name ?? '')}</small></button>`,
-        ...rooms.filter(r => r.id !== now).map(r => { const l = lock(g, w, r.id), n = (by[r.id] ?? []).length;
-            return `<button class="mh-act mh-glass is-room" data-act="rm-go" data-id="${esc(r.id)}" ${l ? 'aria-disabled="true"' : ''}><i>${l ? icon('lock') : '🚪'}</i><b data-notr>${esc(r.name)}</b><small>${l || (n ? `${n} ${n === 1 ? 'person' : 'people'} there` : 'Go there')}</small></button>`; })];
+        ...rooms.filter(r => r.id !== now).map(r => { const l = lock(g, w, r), n = (by[r.id] ?? []).length;
+            return `<button class="mh-act mh-glass is-room" data-act="rm-go" data-id="${esc(r.id)}" ${l ? 'aria-disabled="true"' : ''}><i>${l ? icon('lock') : '🚪'}</i><b data-notr>${esc(r.name)}</b><small>${esc(l || (n ? `${n} ${n === 1 ? 'person' : 'people'} there` : whose(g, w, r.id) || 'Go there'))}</small></button>`; })];
 }
 
 // The floor plan, over the scene.
 export function roomsPlanHtml(): string {
     const g = game(); const w = g && getWorld(g.world);
     if (!g || !w || !RM.plan || state.view !== 'scene') return '';
-    const it = interiorOf(w, g.player.loc); if (!it) return '';
+    const it = spotAt(g, w, g.player.loc); if (!it) return '';
     const here = placeOf(g, w, g.player.loc), now = roomNow(g, w), by = whoIn(g, w);
-    const floorId = it.floors.some(f => f.id === RM.floor) ? RM.floor : it.rooms.find(r => r.id === now)?.floor ?? it.floors[0]?.id ?? '';
+    const floorId = it.floors.some(f => f.id === RM.floor) ? RM.floor : it.boxes.find(r => r.id === now)?.floor ?? it.floors[0]?.id ?? '';
     const floor = it.floors.find(f => f.id === floorId);
     const img = floor ? pictureAt(w, g.minutes, floor.image, floor.images) : '';
-    const boxes = it.rooms.filter(r => r.floor === floorId).map(r => {
-        const p = placeOf(g, w, r.id); if (!p) return '';
-        const l = lock(g, w, r.id), people = by[r.id] ?? [];
+    const boxes = it.boxes.filter(r => r.floor === floorId).map(r => {
+        const p = it.rooms.find(x => x.id === r.id); if (!p) return '';
+        const l = lock(g, w, p), people = by[r.id] ?? [];
         return `<button class="mu-room-box ${r.id === now ? 'is-here' : ''} ${l ? 'is-shut' : ''}" style="left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%" data-act="rm-go" data-id="${esc(r.id)}" ${l || r.id === now ? 'aria-disabled="true"' : ''} title="${esc(l || p.desc || '')}">
-            <b data-notr>${esc(p.name)}</b>${l ? `<small>${esc(l)}</small>` : ''}<span>${r.id === now ? '<em>You</em>' : ''}${people.slice(0, 4).map(x => x.met ? `<img src="${esc(thumb(x.avatar))}" alt="${esc(x.name)}" title="${esc(x.name)}">` : '<i title="Someone you have not met">?</i>').join('')}${people.length > 4 ? `<em>+${people.length - 4}</em>` : ''}</span></button>`;
+            <b data-notr>${esc(p.name)}</b>${l || whose(g, w, r.id) ? `<small>${esc(l || whose(g, w, r.id))}</small>` : ''}<span>${r.id === now ? '<em>You</em>' : ''}${people.slice(0, 4).map(x => x.met ? `<img src="${esc(thumb(x.avatar))}" alt="${esc(x.name)}" title="${esc(x.name)}">` : '<i title="Someone you have not met">?</i>').join('')}${people.length > 4 ? `<em>+${people.length - 4}</em>` : ''}</span></button>`;
     }).join('');
     return `<div class="mu-recap-veil" data-act="rm-plan"><section class="mu-recap mh-glass mu-rooms" role="dialog" aria-label="Floor plan" data-act="rm-keep">
         <header><small>Floor plan</small><h3 data-notr>${esc(here?.name ?? '')}</h3></header>

@@ -198,7 +198,9 @@ export interface WorldDef {
     /** `kinds.<kind>.bills`: what each kind of home pays a week for each expense (by expense id).
      *  `expenses`: the bills besides the rent (water, power, firewood, taxes…); each `blocks` the actions it stops while
      *  it is a week unpaid. Without it, a world has water and power. */
-    homes: { zones: HomeZone[]; kinds: Record<string, { name: string; desc: string; image?: string; images?: Record<string, string>; bills?: Record<string, number> }>;
+    homes: { zones: HomeZone[]; kinds: Record<string, { name: string; desc: string; image?: string; images?: Record<string, string>; bills?: Record<string, number>; /** the rooms of every home of this kind (sim/interiors.ts) */ interior?: HomePlan }>;
+        /** Plans of homes with rooms, by id; an address names its plan in `zones[].interiors` ({ spot index: plan id }). */
+        plans?: Record<string, HomePlan>;
         expenses?: { id: string; name: string; icon?: string; blocks?: string[]; cut?: string; back?: string }[] };
     statuses: StatusDef[];
     actions: ActionDef[];
@@ -264,6 +266,14 @@ export interface WorldDef {
 }
 
 // The phone's apps, as the Modern style has them (a world can rename them, change icons or turn them off).
+/** A home with rooms: floors, room boxes (percent of the floor's picture) and what each room is (`templates`, by the box's id). */
+export interface HomePlan {
+    name?: string; entry: string;
+    floors: { id: string; name: string; image?: string; images?: Record<string, string>; ratio?: number }[];
+    rooms: { id: string; floor: string; x: number; y: number; w: number; h: number }[];
+    templates: { id: string; name: string; tags?: string[]; desc?: string; event?: string; bg?: string; bgs?: Record<string, string>; access?: 'public' | 'private' | 'locked';
+        /** a bedroom: 'one' person's, or a 'couple''s */ owner?: 'one' | 'couple'; /** a bedroom nobody of the household takes */ guest?: boolean; /** a duplex: the flat it belongs to */ unit?: number; wear?: string; door?: boolean }[];
+}
 export const DEFAULT_APPS: AppDef[] = [
     { id: 'messages', name: 'Messages', icon: 'chat', color: '#34c759', on: true },
     { id: 'people', name: 'People', icon: 'users', color: '#ff9f0a', on: true },

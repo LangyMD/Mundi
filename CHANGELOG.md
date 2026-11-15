@@ -2,6 +2,12 @@
 
 ## Unreleased (this fork)
 
+- **Rooms inside homes:** a world file can give homes rooms too (`homes.plans`, named per address by
+  `homes.zones[].interiors`, or `interior` on a kind of home). Your home and other people's then have a floor plan
+  like a building. Bedrooms are handed to the household (a character can name theirs; a couple's room holds two; a
+  guest room stays free). At night people are in their bedrooms, by day in the shared rooms; visitors are in the
+  living room. Your own home is open to you; someone's bedroom opens when you are close or together; the private
+  rooms of someone else's home stay shut. A duplex gives each flat its own rooms plus the shared ones.
 - **Rooms inside places:** a place in the world file can have an `interior` (floors, and rooms that are places of
   their own with `in: <building>`). Arriving puts you in its entry; the other rooms are listed with the things to
   do, and "Floor plan" shows the building with who is in each room. Walking between rooms takes no time. The scene

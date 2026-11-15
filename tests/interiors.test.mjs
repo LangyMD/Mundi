@@ -111,5 +111,78 @@ ok(acts().includes('t-kitchen') && !acts().includes('t-wash'), 'the kitchen: wha
 g.player.loc = 'mall'; delete g.player.room;
 ok(acts().includes('t-wash'), 'a place without rooms: an action that names rooms is offered as before');
 
+/* ---------- homes with rooms ---------- */
+{
+    const w2 = world(ext, 'modern'); w2.id = 'homerooms';
+    const s2 = fixture('v0.1.0-modern.json'); s2.world = 'homerooms';
+    const T = (id, name, tags, extra = {}) => ({ id, name, tags, desc: `the ${name.toLowerCase()}.`, ...extra });
+    const plan = { entry: 'living', floors: [{ id: 'g', name: 'Ground floor' }, { id: 'u', name: 'Upstairs' }],
+        rooms: ['living', 'kitchen', 'bathroom', 'bed1', 'bed2', 'guest', 'study'].map((id, i) => ({ id, floor: i < 3 ? 'g' : 'u', x: (i % 4) * 25, y: 0, w: 25, h: 100 })),
+        templates: [T('living', 'Living room', ['living', 'leisure'], { bg: 'bg/living.jpg' }), T('kitchen', 'Kitchen', ['kitchen', 'food']), T('bathroom', 'Bathroom', ['bath']),
+            T('bed1', 'Front bedroom', ['bed'], { access: 'private', owner: 'couple' }), T('bed2', 'Back bedroom', ['bed'], { access: 'private', owner: 'one' }),
+            T('guest', 'Guest room', ['bed'], { guest: true }), T('study', 'Study', ['office'], { access: 'private', wear: 'formal' })] };
+    w2.homes.plans = { p1: plan };
+    // every address uses the plan
+    for (const z of w2.homes.zones) z.interiors = Object.fromEntries(z.spots.map((_, i) => [String(i), 'p1']));
+    w2.actions.find(a => a.id === 'shower').rooms = ['bath']; w2.actions.find(a => a.id === 'cook').rooms = ['kitchen'];
+    W.registerWorld(w2);
+    const g2 = open(s2);
+    g2.minutes = 14 * 60;
+    const acts2 = () => needs.actionsHere(g2, w2).map(a => a.id);
+
+    // your own home
+    g2.player.loc = 'home:player'; delete g2.player.room;
+    const sp = I.spotAt(g2, w2, 'home:player');
+    ok(sp && sp.home && sp.rooms.length === 7 && sp.floors.length === 2, 'your home has its rooms and floors');
+    ok(I.roomNow(g2, w2) === 'living', 'you come in at the entry');
+    ok(I.household(g2, 'home:player')[0] === '__you', 'you live there');
+    ok(I.bedroomOf(g2, w2, 'home:player', '__you') === 'bed1', 'the first bedroom is yours');
+    ok(!I.bedrooms(g2, w2, 'home:player').guest, 'nobody takes the guest room');
+    const sc = I.scenePlace(g2, w2);
+    ok(sc.name === 'My home › Living room' && sc.id === 'home:player/living' && sc.home && sc.building === 'home:player' && sc.bg === 'bg/living.jpg', 'the scene is the room of your home');
+    ok(g2.player.loc === 'home:player', 'and you are still "at home"');
+    ok(!acts2().includes('shower') && !acts2().includes('cook'), 'the living room: no shower, no cooking');
+    ok(I.enterRoom(g2, w2, 'bathroom') === '' && acts2().includes('shower') && !acts2().includes('cook'), 'the bathroom: a shower');
+    ok(I.enterRoom(g2, w2, 'kitchen') === '' && acts2().includes('cook'), 'the kitchen: cooking');
+    ok(I.enterRoom(g2, w2, 'study') === '' && I.enterRoom(g2, w2, 'bed1') === '' && I.enterRoom(g2, w2, 'bed2') === '', 'your own home is open to you');
+    ok(I.scenePlace(g2, w2).wear === undefined && (I.enterRoom(g2, w2, 'study'), I.scenePlace(g2, w2).wear === 'formal'), 'a room can say what is worn there');
+    ok(/Place: My home › Study — the study\./.test(P.sceneText()), 'the AI is told the room');
+
+    // someone else's home
+    const host = Object.values(g2.cast).find(r => !r.homeWith && I.household(g2, `home:${r.avatar}`).length === 1 && !So.isPartner(g2, r.avatar));
+    const loc = `home:${host.avatar}`;
+    g2.player.loc = loc; delete g2.player.room; So.social(g2).bond[host.avatar] = 10;
+    ok(I.roomNow(g2, w2) === 'living' && I.bedroomOf(g2, w2, loc, host.avatar) === 'bed1', 'their home: the entry, and their bedroom');
+    ok(/that is .*'s room/.test(I.enterRoom(g2, w2, 'bed1')), 'their bedroom is theirs');
+    ok(/private/.test(I.enterRoom(g2, w2, 'study')) && /private/.test(I.enterRoom(g2, w2, 'bed2')), 'private rooms are shut to a visitor');
+    ok(I.enterRoom(g2, w2, 'kitchen') === '' && I.enterRoom(g2, w2, 'guest') === '', 'the shared rooms and the guest room are open');
+    So.social(g2).bond[host.avatar] = I.ROOM_BOND;
+    ok(I.enterRoom(g2, w2, 'bed1') === '', 'close enough: you may walk into their room');
+    ok(/private/.test(I.enterRoom(g2, w2, 'study')), 'but not the rest of the private rooms');
+    So.social(g2).partner.push(host.avatar);
+    ok(I.enterRoom(g2, w2, 'study') === '', 'together: their home is open to you');
+    So.social(g2).partner.length = 0;
+    // where they are, at home
+    const nightAt = g2.day * 1440 + 23 * 60, dayAt = g2.day * 1440 + 15 * 60;
+    ok(I.roomOfPerson(g2, w2, host, loc, nightAt) === 'bed1', 'at night they are in their bedroom');
+    const seen = new Set(); for (let d = 0; d < 20; d++) seen.add(I.roomOfPerson(g2, w2, host, loc, dayAt + d * 1440));
+    ok(![...seen].some(id => ['bathroom', 'guest', 'study', 'bed2'].includes(id)) && seen.has('living'), `by day in the rooms a household shares (${[...seen].join(', ')})`);
+    const visitor = Object.values(g2.cast).find(r => r.avatar !== host.avatar && !I.household(g2, loc).includes(r.avatar));
+    ok(I.roomOfPerson(g2, w2, visitor, loc, nightAt) === 'living', 'a visitor is in the living room');
+
+    // a duplex: each flat has its own rooms and the shared ones
+    plan.templates.find(t => t.id === 'bed2').unit = 1; plan.templates.find(t => t.id === 'kitchen').unit = 0;
+    host.home.unit = 1;
+    const flat = I.spotAt(g2, w2, loc).rooms.map(r => r.id);
+    ok(flat.includes('bed2') && !flat.includes('kitchen') && flat.includes('living'), 'the upstairs flat: its own rooms and the shared ones');
+    delete host.home.unit;
+
+    // a home with no plan: one scene, as before
+    for (const z of w2.homes.zones) delete z.interiors;
+    ok(I.spotAt(g2, w2, loc) === null && I.roomNow(g2, w2) === '' && I.scenePlace(g2, w2).id === loc, 'a home without a plan is one scene, as before');
+    g2.player.loc = 'home:player';
+    ok(acts2().includes('shower') && acts2().includes('cook'), 'and everything can be done there');
+}
+
 console.log(fails ? `${fails} FAILED, ${passes} passed` : `${passes} checks passed`);
 process.exit(fails ? 1 : 0);

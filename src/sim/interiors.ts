@@ -1,20 +1,30 @@
-// Rooms inside a place. A building (a café, a school) can have an interior: rooms on one or more floors. Where you
-// are stays the building (`player.loc`), so travel, plans, jobs and opening hours work as before; `player.room`
-// says which room of it you are in, and only narrows the scene: who is with you, what you can do, the picture and
-// the place the AI is told. A room is an ordinary place of the world file with `in: <building id>`.
+// Rooms inside a place. A building (a café, a school) or a home can have an interior: rooms on one or more floors.
+// Where you are stays the building or the home (`player.loc`), so travel, plans, jobs and opening hours work as
+// before; `player.room` says which room of it you are in, and only narrows the scene: who is with you, what you can
+// do, the picture and the place the AI is told.
+//  - A public building: `interior` on the place; each room is an ordinary place of the world file with `in`.
+//  - A home: a plan in `homes.plans`, named for an address by `homes.zones[].interiors` (or `interior` on the kind
+//    of home); its rooms are the plan's `templates`, and exist once per home (`home:<owner>/<room>`).
 import { nowAbs, type Save, type Resident } from '../core/store.js';
 import { systemOn, type WorldDef, type Place } from '../core/world.js';
 import { presentAt, routineStep } from './people.js';
-import { placeOf } from './places.js';
-import { isWith } from './social.js';
+import { placeOf, isHome, playerHomeId } from './places.js';
+import { isWith, bondOf, isPartner } from './social.js';
 
 export interface InteriorFloor { id: string; name: string; image?: string; images?: Record<string, string>; ratio?: number; kind?: 'plan' | 'area' }
-export interface InteriorRoom { id: string; floor: string; x: number; y: number; w: number; h: number }
+export interface InteriorRoom { id: string; floor: string; x: number; y: number; w: number; h: number; unit?: number }
 export interface Interior { entry: string; floors: InteriorFloor[]; rooms: InteriorRoom[] }
 export type Access = 'public' | 'staff' | 'private' | 'locked';
+export type RoomPlace = Place & { access?: Access; owner?: string; guest?: boolean; unit?: number; wear?: string; home?: boolean };
+/** The rooms of where someone is: `rooms` by their id within the place (a public room's place id; a home room's template id). */
+export interface Spot { loc: string; home: boolean; entry: string; floors: InteriorFloor[]; boxes: InteriorRoom[]; rooms: RoomPlace[] }
+/** Close enough to walk into someone's own room. */
+export const ROOM_BOND = 60;
 
 const hash = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const pub = (w: WorldDef, id: string) => w.places.find(p => p.id === id) as (Place & { in?: string; access?: Access; interior?: Interior }) | undefined;
+
+/* ---------- public buildings ---------- */
 
 export const interiorOf = (w: WorldDef, building: string): Interior | null => { const i = pub(w, building)?.interior; return i && Array.isArray(i.rooms) && i.rooms.length ? i : null; };
 export const isRoom = (w: WorldDef, id: string) => !!pub(w, id)?.in;
@@ -22,15 +32,83 @@ export const isRoom = (w: WorldDef, id: string) => !!pub(w, id)?.in;
 export const buildingOf = (w: WorldDef, id: string) => pub(w, id)?.in ?? id;
 export const roomsOf = (w: WorldDef, building: string): Place[] => { const i = interiorOf(w, building); return i ? i.rooms.map(r => pub(w, r.id)).filter((p): p is Place => !!p && (p as any).in === building) : []; };
 export const accessOf = (w: WorldDef, room: string): Access => (pub(w, room)?.access ?? 'public');
-const entryOf = (w: WorldDef, building: string) => { const i = interiorOf(w, building); if (!i) return ''; return roomsOf(w, building).some(r => r.id === i.entry) ? i.entry : roomsOf(w, building)[0]?.id ?? ''; };
 
-// The room you are in ('' when the place has no rooms). A room that is not of this building counts as the entry.
-export function roomNow(g: Save, w: WorldDef): string {
-    const i = interiorOf(w, g.player.loc); if (!i) return '';
-    const r = (g.player as any).room as string | undefined;
-    return r && roomsOf(w, g.player.loc).some(p => p.id === r) ? r : entryOf(w, g.player.loc);
+/* ---------- homes ---------- */
+
+type HomeRef = { zone: string; x: number; y: number; unit?: number; kind?: string };
+const sameHome = (a: HomeRef, b: HomeRef) => a.zone === b.zone && a.x === b.x && a.y === b.y && (a.unit ?? 0) === (b.unit ?? 0);
+// Whose home a home id is: the player's, or a resident's (someone who lives with another is at that one's home).
+function homeRef(g: Save, loc: string): HomeRef | null {
+    if (loc === playerHomeId) return g.player.home;
+    const r = g.cast[loc.slice(5)]; if (!r) return null;
+    const w2 = (r as any).homeWith as string | undefined;
+    if (w2 === '__you') return g.player.home;
+    if (w2 && w2 !== r.avatar && g.cast[w2]) return g.cast[w2].home;
+    return r.home;
 }
-// Arriving at a building puts you in its entry; leaving forgets the room.
+// The plan of a home: the one its address names, else the one of its kind of home.
+function homePlan(w: WorldDef, h: HomeRef): (Interior & { templates?: any[] }) | null {
+    const homes = w.homes as any, zone = homes.zones.find((z: any) => z.id === h.zone);
+    if (!zone) return null;
+    const spot = (zone.spots ?? []).findIndex((s: number[]) => s[0] === h.x && s[1] === h.y);
+    const named = zone.interiors?.[String(spot)] ?? zone.interiors?.[String(Math.max(0, spot))];
+    const plan = (named && homes.plans?.[named]) || homes.kinds?.[h.kind ?? zone.kind]?.interior;
+    return plan && Array.isArray(plan.rooms) && plan.rooms.length && Array.isArray(plan.templates) ? plan : null;
+}
+// Who lives in a home (you included, as '__you'), in the order the world has them.
+export function household(g: Save, loc: string): string[] {
+    const h = homeRef(g, loc); if (!h) return [];
+    const out = Object.values(g.cast).filter(r => {
+        const w2 = (r as any).homeWith as string | undefined;
+        if (w2 === '__you') return sameHome(h, g.player.home);
+        return sameHome(h, w2 && g.cast[w2] ? g.cast[w2].home : r.home);
+    }).map(r => r.avatar);
+    return sameHome(h, g.player.home) ? ['__you', ...out] : out;
+}
+// Whose bedroom each bedroom is. A room a character names in the world file is theirs; the rest of the household
+// take the bedrooms that are left, in order (a room for a couple holds two).
+export function bedrooms(g: Save, w: WorldDef, loc: string): Record<string, string[]> {
+    const sp = spotAt(g, w, loc); const out: Record<string, string[]> = {};
+    if (!sp?.home) return out;
+    const beds = sp.rooms.filter(r => (r.tags ?? []).includes('bed') && !r.guest);
+    const members = household(g, loc), left: string[] = [];
+    for (const m of members) {
+        const want = m === '__you' ? '' : String((w.cast.examples.find(e => e.name === g.cast[m]?.name) as any)?.room ?? '');
+        if (want && beds.some(b => b.id === want)) (out[want] ??= []).push(m); else left.push(m);
+    }
+    for (const b of beds) {
+        const room = b.owner === 'couple' ? 2 : 1;
+        while ((out[b.id]?.length ?? 0) < room && left.length) (out[b.id] ??= []).push(left.shift()!);
+    }
+    return out;
+}
+export const bedroomOf = (g: Save, w: WorldDef, loc: string, who: string) => Object.entries(bedrooms(g, w, loc)).find(([, l]) => l.includes(who))?.[0] ?? '';
+
+/* ---------- the rooms of where you are ---------- */
+
+export function spotAt(g: Save, w: WorldDef, loc: string): Spot | null {
+    if (isHome(loc)) {
+        const h = homeRef(g, loc); const plan = h && homePlan(w, h); if (!h || !plan) return null;
+        const unit = h.unit ?? 0, base = placeOf(g, w, loc);
+        // (a flat of a duplex: its own rooms and the shared ones)
+        const mine = (plan.templates as any[]).filter(t => t.unit === undefined || t.unit === unit);
+        const rooms: RoomPlace[] = mine.map(t => ({ ...t, id: String(t.id), name: String(t.name ?? t.id), map: base?.map ?? '', x: base?.x ?? 0, y: base?.y ?? 0, tags: t.tags ?? [], home: true }));
+        const boxes = plan.rooms.filter(r => rooms.some(p => p.id === r.id));
+        if (!rooms.length || !boxes.length) return null;
+        const entry = rooms.some(r => r.id === plan.entry) ? plan.entry : (rooms.find(r => (r.tags ?? []).includes('living')) ?? rooms[0]).id;
+        return { loc, home: true, entry, floors: plan.floors.filter(f => boxes.some(b => b.floor === f.id)), boxes, rooms };
+    }
+    const i = interiorOf(w, loc); if (!i) return null;
+    const rooms = roomsOf(w, loc) as RoomPlace[]; if (!rooms.length) return null;
+    return { loc, home: false, entry: rooms.some(r => r.id === i.entry) ? i.entry : rooms[0].id, floors: i.floors, boxes: i.rooms.filter(r => rooms.some(p => p.id === r.id)), rooms };
+}
+// The room you are in ('' when the place has no rooms). A room that is not of this place counts as the entry.
+export function roomNow(g: Save, w: WorldDef): string {
+    const sp = spotAt(g, w, g.player.loc); if (!sp) return '';
+    const r = (g.player as any).room as string | undefined;
+    return r && sp.rooms.some(p => p.id === r) ? r : sp.entry;
+}
+// Arriving somewhere with rooms puts you in its entry; leaving forgets the room.
 export function settleRoom(g: Save, w: WorldDef) {
     const r = roomNow(g, w);
     if (r) (g.player as any).room = r; else delete (g.player as any).room;
@@ -40,20 +118,37 @@ const worksHere = (g: Save, w: WorldDef, r: Resident, building: string, at: numb
     const job = systemOn(w, 'jobs') ? w.occupations.find(o => o.id === r.occupation) : null;
     return job && job.place === building && routineStep(r, at)[1] === 'work' ? job : null;
 };
-// Which room of a building someone is in. Staff are in the room their job names (else the entry); the people who
-// came with you are in your room; everyone else is in one of the public rooms, the same one for a whole stretch of
-// their day (mostly the entry, where a visitor would be).
-export function roomOfPerson(g: Save, w: WorldDef, r: Resident, building: string, at = nowAbs(g)): string {
-    const i = interiorOf(w, building); if (!i) return '';
-    const entry = entryOf(w, building), rooms = roomsOf(w, building);
-    if (building === g.player.loc && isWith(g, r.avatar)) return roomNow(g, w);
-    const job = worksHere(g, w, r, building, at);
-    if (job) { const room = (job as any).room as string | undefined; return room && rooms.some(p => p.id === room) ? room : entry; }
-    const open = rooms.filter(p => accessOf(w, p.id) === 'public');
-    if (!open.length) return entry;
-    const [start] = routineStep(r, at), day = Math.floor(at / 1440);
-    const h = hash(`${r.avatar}|${building}|${day}|${start}`);
-    if (h % 5 < 2 && open.some(p => p.id === entry)) return entry;
+const NIGHT_FROM = 22 * 60, NIGHT_TO = 6 * 60 + 30;
+const COMMON = ['living', 'kitchen', 'dining', 'garden', 'office', 'gym', 'pool'];
+// Which room of a place someone is in.
+//  - The people who came with you are in your room.
+//  - A building: staff are in the room their job names (else the entry); visitors are in one of the public rooms, the
+//    same one for a whole stretch of their day (mostly the entry).
+//  - A home: at night the people who live there are in their bedrooms; by day in the rooms a household shares (the
+//    same one for a stretch of the day). Visitors are in the living room.
+export function roomOfPerson(g: Save, w: WorldDef, r: Resident, loc: string, at = nowAbs(g)): string {
+    const sp = spotAt(g, w, loc); if (!sp) return '';
+    if (loc === g.player.loc && isWith(g, r.avatar)) return roomNow(g, w);
+    const [start] = routineStep(r, at), day = Math.floor(at / 1440), min = at % 1440;
+    const h = hash(`${r.avatar}|${loc}|${day}|${start}`);
+    if (sp.home) {
+        const lives = household(g, loc).includes(r.avatar);
+        const shared = sp.rooms.filter(p => p.access !== 'private' && p.access !== 'locked' && (p.tags ?? []).some(t => COMMON.includes(t)));
+        const living = (shared.find(p => (p.tags ?? []).includes('living')) ?? sp.rooms.find(p => p.id === sp.entry))!.id;
+        if (!lives) return living;
+        const bed = bedroomOf(g, w, loc, r.avatar);
+        if (bed && (min >= NIGHT_FROM || min < NIGHT_TO)) return bed;
+        // their own home has its private rooms open to them (a study, their own bath are not where they spend the day)
+        if (!shared.length) return bed || living;
+        if (h % 5 < 2) return living;
+        if (bed && h % 7 === 0) return bed;
+        return shared[(h >>> 3) % shared.length].id;
+    }
+    const job = worksHere(g, w, r, loc, at);
+    if (job) { const room = (job as any).room as string | undefined; return room && sp.rooms.some(p => p.id === room) ? room : sp.entry; }
+    const open = sp.rooms.filter(p => (p.access ?? 'public') === 'public');
+    if (!open.length) return sp.entry;
+    if (h % 5 < 2 && open.some(p => p.id === sp.entry)) return sp.entry;
     return open[(h >>> 3) % open.length].id;
 }
 // Who is in the scene with you: the people of this place, in your room when it has rooms.
@@ -68,25 +163,43 @@ export function elsewhere(g: Save, w: WorldDef): { r: Resident; room: string }[]
 }
 
 // The place of the scene: the room you are in (named "Building › Room"), or the place itself.
-export function scenePlace(g: Save, w: WorldDef): (Place & { home?: boolean; owner?: string; building?: string }) | null {
+export function scenePlace(g: Save, w: WorldDef): (Place & { home?: boolean; owner?: string; building?: string; wear?: string }) | null {
     const here = placeOf(g, w, g.player.loc), room = roomNow(g, w);
     if (!here || !room) return here;
-    const p = placeOf(g, w, room); if (!p) return here;
-    return { ...p, name: `${here.name} › ${p.name}`, bg: p.bg ?? here.bg, building: here.id };
+    const sp = spotAt(g, w, g.player.loc)!;
+    const p = sp.home ? sp.rooms.find(r => r.id === room) : placeOf(g, w, room); if (!p) return here;
+    // (a home room keeps the home's owner, not the bedroom's "one" / "couple")
+    return { ...p, id: sp.home ? `${here.id}/${p.id}` : p.id, name: `${here.name} › ${p.name}`, bg: p.bg ?? here.bg, building: here.id, ...(sp.home ? { home: true, owner: here.owner } : {}) };
 }
 
-// May you go into this room? Staff rooms are for those who work in the building; private and locked ones are shut.
-export function canEnter(g: Save, w: WorldDef, room: string): { ok: boolean; text: string } {
-    const p = pub(w, room); if (!p?.in) return { ok: false, text: '' };
-    const a = accessOf(w, room);
+// May you go into this room?
+//  - A building: staff rooms are for those who work there; private and locked ones are shut.
+//  - A home: your own home is open to you, and so is a home where you live with someone. Someone's bedroom is theirs:
+//    you walk in when you are together or close. In someone else's home the private rooms are shut, unless you are
+//    together with someone who lives there.
+export function canEnter(g: Save, w: WorldDef, room: string, loc = g.player.loc): { ok: boolean; text: string } {
+    const sp = spotAt(g, w, loc), p = sp?.rooms.find(r => r.id === room);
+    if (!sp || !p) return { ok: false, text: '' };
+    const a = p.access ?? 'public';
+    if (a === 'locked') return { ok: false, text: `${p.name} is locked.` };
+    if (sp.home) {
+        const members = household(g, loc), mine = members.includes('__you');
+        const owners = (bedrooms(g, w, loc)[room] ?? []).filter(o => o !== '__you');
+        const close = (o: string) => isPartner(g, o) || bondOf(g, o) >= ROOM_BOND;
+        if ((bedrooms(g, w, loc)[room] ?? []).includes('__you')) return { ok: true, text: '' };
+        if (owners.length) return owners.some(close) ? { ok: true, text: '' } : { ok: false, text: `${p.name}: that is ${g.cast[owners[0]]?.name ?? 'someone'}'s room.` };
+        if (mine || a === 'public') return { ok: true, text: '' };
+        return members.some(m => m !== '__you' && isPartner(g, m)) ? { ok: true, text: '' } : { ok: false, text: `${p.name} is private.` };
+    }
     if (a === 'public') return { ok: true, text: '' };
     const job = g.player.job ? w.occupations.find(o => o.id === g.player.job!.id) : null;
-    if (a === 'staff') return job?.place === p.in ? { ok: true, text: '' } : { ok: false, text: `${p.name}: staff only.` };
-    return { ok: false, text: a === 'locked' ? `${p.name} is locked.` : `${p.name} is private.` };
+    if (a === 'staff') return job?.place === loc ? { ok: true, text: '' } : { ok: false, text: `${p.name}: staff only.` };
+    return { ok: false, text: `${p.name} is private.` };
 }
-// Walks to another room of the building you are in (no time passes). Returns why not, or ''.
+// Walks to another room of where you are (no time passes). Returns why not, or ''.
 export function enterRoom(g: Save, w: WorldDef, room: string): string {
-    if (pub(w, room)?.in !== g.player.loc) return 'That room is not in this building.';
+    const sp = spotAt(g, w, g.player.loc);
+    if (!sp?.rooms.some(r => r.id === room)) return 'That room is not in this building.';
     const c = canEnter(g, w, room); if (!c.ok) return c.text;
     (g.player as any).room = room;
     return '';
@@ -95,8 +208,9 @@ export function enterRoom(g: Save, w: WorldDef, room: string): string {
 // For the AI: who else is in the building, and where.
 export function elsewhereLine(g: Save, w: WorldDef): string {
     const list = elsewhere(g, w).filter(x => x.r.met); if (!list.length) return '';
-    const name = (id: string) => pub(w, id)?.name ?? id;
-    return `Elsewhere in the building, not in this scene: ${list.slice(0, 8).map(x => `${x.r.name} (${name(x.room).toLowerCase()})`).join(', ')}.`;
+    const sp = spotAt(g, w, g.player.loc);
+    const name = (id: string) => sp?.rooms.find(r => r.id === id)?.name ?? id;
+    return `Elsewhere in the ${sp?.home ? 'house' : 'building'}, not in this scene: ${list.slice(0, 8).map(x => `${x.r.name} (${name(x.room).toLowerCase()})`).join(', ')}.`;
 }
 // Does an action that names the rooms it needs (`rooms`: room tags) fit this room?
 export const fitsRoom = (rooms: string[] | undefined, roomTags: string[]) => !rooms?.length || rooms.some(t => roomTags.includes(t));
