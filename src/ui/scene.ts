@@ -20,7 +20,7 @@ import { state, notify, esc, game, toast, ROOT_ID, saveGame, UI } from '../core/
 import { styleOf, styleNote } from '../sim/style.js';
 import { findAction, findRequest, requestTarget, willingLine } from '../sim/intent.js';
 import { expandPrompt, cleanExpansion, EXPAND_SYSTEM } from '../sim/expand.js';
-import { actionsHere, money } from '../sim/needs.js';
+import { actionsHere, money, socialContact } from '../sim/needs.js';
 import { shape, modesFor, modeFor, inputStyleOf, type InputMode } from '../core/compose.js';
 import { getWorld, worldFile, systemOn, type WorldDef } from '../core/world.js';
 import type { Save } from '../core/store.js';
@@ -494,6 +494,7 @@ Object.assign(ACT, {
             const { hurt, harsh } = judgeLine(g, w, meant, hearers);   // a harsh line counts only if they take it badly
             hurt.forEach(m => toast(m, 'warn'));
             if (!harsh) for (const r of hearers) if (r.met) addBond(g, r.avatar, 3);
+            if (!harsh && hearers.length) socialContact(g, w, 3);   // company, strangers too (the social need, when on)
             lockScene(g, w); saveGame();
         }
         state.composer = '';

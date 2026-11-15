@@ -233,8 +233,10 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     const work = await D('sim/work.js');
     const g = open(fixture('v0.1.0-modern.json'));
     const idsAt = (loc) => { g.player.loc = loc; return needs.actionsHere(g, modern).map(a => a.id); };
+    const mine = g.player.traits; g.player.traits = {};   // (the usual pace: no trait that saves or costs energy)
     at(g, 3, 8 * 60); g.player.stats.energy = 100; g.tick = {};
     time.advance(g, modern, 60); time.advance(g, modern, 600);
+    g.player.traits = mine;
     ok(g.player.stats.energy <= 62 && g.player.stats.energy >= 50, `ten hours awake cost energy (${g.player.stats.energy})`);
     g.asleep = true; const e0 = g.player.stats.energy; time.advance(g, modern, 240); g.asleep = false;
     ok(g.player.stats.energy === e0, 'no energy is lost while asleep');
@@ -259,6 +261,251 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     g.player.job = { id: 'bartender', rank: 0, shifts: 0 }; g.player.stats.energy = 100; at(g, 6, 20 * 60);
     work.workShift(g, modern, 'normal');
     ok(g.day === 7 && work.shiftLeft(g, bar) === 0, 'a night shift past midnight still counts for the night it began');
+}
+// who you are changes your needs and relationships; the optional social need
+{
+    const mods = await D('sim/modifiers.js'); const soc = await D('sim/social.js'); const rom = await D('sim/romance.js'); const presets = await D('core/presets.js');
+    const g = open(fixture('v0.1.0-modern.json'));
+    const run = (traits, f) => { g.player.traits = { personality: traits }; g.tick = {}; g.asleep = false; return f(); };
+    const moodAfter = (traits) => run(traits, () => { at(g, 3, 8 * 60); g.player.stats.mood = 80; time.advance(g, modern, 1); time.advance(g, modern, 720); return g.player.stats.mood; });
+    const plain = moodAfter([]), cheerful = moodAfter(['Cheerful']), hot = moodAfter(['Hot-headed']);
+    ok(cheerful > plain && hot < plain, `a cheerful person keeps their mood longer, a hot-headed one loses it sooner (${cheerful} > ${plain} > ${hot})`);
+    g.player.traits = { personality: ['Cheerful', 'Calm', 'Devout'], habits: ['Athletic'], proficiency: ['Strong', 'Quick'] };
+    ok(mods.decayMult(g, modern, 'mood') >= 0.5 && mods.decayMult(g, modern, 'energy') >= 0.5 && mods.decayMult(g, modern, 'thirst') === 1, 'stacked traits never go past half speed; a need nobody touches is as it was');
+    ok(mods.decayMult(g, modern, 'energy') < 1, 'a trait that came from a habit counts like any other');
+    // what fills a need
+    const cook = modern.actions.find(a => a.id === 'cook'), meal = modern.actions.find(a => a.id === 'meal');
+    const eat = (traits, a) => run(traits, () => { g.player.stats.hunger = 10; g.player.money = 500; needs.applyAction(g, modern, a); return g.player.stats.hunger; });
+    ok(eat(['Good cook'], cook) > eat([], cook) && eat(['Good cook'], meal) === eat([], meal), 'a good cook gets more from cooking, not from a meal out');
+    g.player.traits = {}; g.player.hobbies = { fitness: 1000 };
+    ok(mods.decayMult(g, modern, 'energy') < 0.85, 'a high hobby level counts (working out: energy lasts longer)');
+    g.player.hobbies = {};
+    // bond and romance
+    const who = Object.keys(g.cast)[0];
+    const gain = (traits) => run(traits, () => { soc.social(g).bond[who] = 20; soc.social(g).today = {}; soc.addBond(g, who, 5); return soc.bondOf(g, who) - 20; });
+    ok(gain(['Charming']) > gain([]) && gain(['Shy']) < gain([]), 'a charming person makes friends faster, a shy one slower');
+    const love = (traits) => run(traits, () => { rom.romOf(g, who).value = 20; rom.addRomance(g, who, 8); return rom.romValue(g, who); });
+    ok(love(['Romantic']) === 30 && love([]) === 28, 'romance grows faster for a romantic');
+    g.player.traits = { personality: ['Romantic'] }; rom.romOf(g, who).value = 20; rom.addRomance(g, who, -8);
+    ok(rom.romValue(g, who) === 12, 'what is lost is lost as before');
+    const custom = structuredClone(modern); custom.id = 'mods'; custom.modifiers = [{ trait: 'Romantic', target: 'hunger', decay: 9 }]; W.registerWorld(custom);
+    ok(mods.decayMult(g, custom, 'hunger') === 2 && mods.gainMult(g, custom, 'romance') === 1, 'a world can bring its own table (kept within ×0.5 to ×2)');
+    g.player.traits = { personality: ['Outgoing'], interests: ['Books'] };
+    ok(mods.modifierLines(g, modern).some(l => /Outgoing: friendships grow 20% more/.test(l)) && !mods.modifierLines(g, modern).some(l => /social/.test(l)), 'the player is told what their traits change, only for what is in play');
+    // the social need: off unless this game turns it on
+    const social = modern.statuses.find(s => s.id === 'social');
+    ok(social?.optional && !W.activeStatuses(modern, g).some(s => s.id === 'social') && !W.activeStatuses(modern).some(s => s.id === 'social'), 'the social need is off by default');
+    g.player.traits = {}; delete g.player.stats.social; g.tick = {}; at(g, 3, 8 * 60);
+    time.advance(g, modern, 600); needs.applyAction(g, modern, { ...modern.actions.find(a => a.id === 'x-drinks'), cost: 0 }); soc.addBond(g, who, 3);
+    ok(g.player.stats.social === undefined, 'off: time, a drink and a chat leave it alone');
+    g.cfg = { ...(g.cfg ?? {}), optNeeds: ['social'] }; g.player.stats.social = social.start; g.tick = {}; at(g, 4, 8 * 60);
+    ok(W.activeStatuses(modern, g).some(s => s.id === 'social') && mods.modifierLines({ ...g, player: { ...g.player, traits: { personality: ['Outgoing'] } } }, modern).some(l => /social drops 25% faster/.test(l)), 'on for this game: it is a need like the others');
+    time.advance(g, modern, 1); time.advance(g, modern, 600);
+    const after10 = g.player.stats.social;
+    ok(after10 <= 42 && after10 >= 38, `ten hours awake without company cost social (${after10})`);
+    soc.social(g).today = {}; soc.addBond(g, who, 3);
+    ok(g.player.stats.social === after10 + 6, 'talking to someone fills it');
+    const s1 = g.player.stats.social; needs.applyAction(g, modern, { ...modern.actions.find(a => a.id === 'x-drinks'), cost: 0 });
+    ok(g.player.stats.social === s1 + 15, 'so does a drink at the bar');
+    g.player.stats.social = 0; g.player.stats.mood = 60; time.advance(g, modern, 180);
+    ok(g.player.stats.mood < 58, 'left empty, loneliness wears the mood down');
+    // Home: only with needs on, and only when chosen
+    const house = world(ext, 'house'); W.registerWorld(house);
+    const hg = { cfg: { needs: true } };
+    ok(!W.activeStatuses(house, hg).some(s => s.id === 'social') && W.activeStatuses(house, { cfg: { needs: true, optNeeds: ['social'] } }).some(s => s.id === 'social') && !W.activeStatuses(house, { cfg: { optNeeds: ['social'] } }).length, 'Home: the social need comes with needs on, when chosen');
+    // an older custom world gets the optional needs once
+    const oldw = structuredClone(modern); oldw.id = 'oldneeds'; oldw.statuses = oldw.statuses.filter(s => !s.optional); delete oldw.presetOptNeeds;
+    presets.upgradeWorld(oldw);
+    ok(oldw.statuses.some(s => s.id === 'social' && s.optional) && oldw.statuses.some(s => s.id === 'intimacy' && s.optional), 'a world made before them gets the optional needs (off until chosen)');
+    const half = structuredClone(modern); half.id = 'half'; half.statuses = half.statuses.filter(s => !s.optional); delete half.presetOptNeeds; half.presetNeeds2 = true; presets.upgradeWorld(half);
+    ok(!half.statuses.some(s => s.id === 'social') && half.statuses.some(s => s.id === 'intimacy'), 'a world that was already offered one gets only the new one');
+    oldw.statuses = oldw.statuses.filter(s => s.id !== 'social'); presets.upgradeWorld(oldw);
+    ok(!oldw.statuses.some(s => s.id === 'social'), 'removed in the creator, it stays removed');
+    // friendships fade only when asked
+    const b = Object.keys(g.cast).slice(0, 3); const S = soc.social(g);
+    g.player.traits = {}; S.partner = [b[2]]; S.bond = { [b[0]]: 50, [b[1]]: 10, [b[2]]: 90 }; S.seen = { [b[0]]: g.day, [b[1]]: g.day, [b[2]]: g.day };
+    const d0 = g.day; g.day = d0 + 12;
+    for (let i = 0; i < 3; i++) soc.bondFade(g, modern);
+    ok(S.bond[b[0]] === 50, 'friendships do not fade unless this game asks for it');
+    g.cfg.bondFade = true; g.day = d0 + 7; soc.bondFade(g, modern);
+    ok(S.bond[b[0]] === 50, 'a week of silence is fine');
+    for (let d = 8; d <= 12; d++) { g.day = d0 + d; soc.bondFade(g, modern); }
+    ok(S.bond[b[0]] === 45 && S.bond[b[1]] === 10 && S.bond[b[2]] === 90, `after that a point a day; acquaintances and partners keep theirs (${S.bond[b[0]]})`);
+    soc.addBond(g, b[0], 1); g.day = d0 + 13; soc.bondFade(g, modern);
+    ok(S.bond[b[0]] >= 46, 'getting in touch stops the fading');
+}
+// the intimacy need: off unless chosen; what is offered depends on how close you are; they decide for themselves
+{
+    const close = await D('sim/intimacy.js'); const soc = await D('sim/social.js'); const rom = await D('sim/romance.js'); const living = await D('sim/living.js'); const fam = await D('sim/family.js');
+    const g = open(fixture('v0.1.0-modern.json'));
+    const [a, b] = Object.keys(g.cast); const A = g.cast[a], B = g.cast[b]; A.met = B.met = true;
+    const S = soc.social(g); S.partner = []; g.romance = {}; g.player.traits = {};
+    const bring = (...who) => { S.with = who.map(avatar => ({ avatar, until: 1e12 })); };
+    const set = (av, bond, r, status = 'none') => { S.bond[av] = bond; rom.romOf(g, av).value = r; rom.romOf(g, av).status = status; };
+    const ids = () => needs.actionsHere(g, modern).filter(x => close.isClose(x)).map(x => x.id);
+    at(g, 6, 20 * 60); g.player.loc = 'park'; bring(a); set(a, 60, 50);
+    ok(!ids().length && !W.activeStatuses(modern, g).some(s => s.id === 'intimacy'), 'off by default: nothing is offered');
+    g.cfg = { ...(g.cfg ?? {}), optNeeds: ['intimacy'] }; g.player.stats.intimacy = 40; g.tick = {};
+    ok(ids().join() === `close:hug:${a},close:cuddle:${a},close:kiss:${a}`, `a crush in the park: a hug, cuddling, a kiss; nothing more in public (${ids().join()})`);
+    set(a, 35, 0); ok(ids().join() === `close:hug:${a}`, 'a friend: a hug');
+    set(a, 5, 0); ok(!ids().length, 'a stranger: nothing');
+    set(a, 80, 80, 'dating'); g.player.loc = 'home:player';
+    ok(ids().includes(`close:love:${a}`), 'a partner, alone at home: making love is possible');
+    bring(a, b); set(b, 40, 0);
+    ok(!ids().includes(`close:love:${a}`) && ids().includes(`close:hug:${b}`), 'not with someone else in the room');
+    bring(); ok(ids().join() === 'close:solo', 'alone at home: private time');
+    g.player.loc = 'park'; ok(!ids().length, 'not alone in the park');
+    // family: a hug, nothing else
+    bring(a); g.player.loc = 'home:player'; g.family = { kids: [], pregnancy: null, tries: {}, ties: [] };
+    set(a, 80, 80); living.setTie(g, { a: '__you', b: a, type: 'sibling', tone: 'close' });
+    ok(fam.romanceBlocked(g, a) && ids().join() === `close:hug:${a}`, `family: only a hug (${ids().join()})`);
+    living.removeTie(g, '__you', a); ok(!fam.romanceBlocked(g, a), '(the tie is gone again)');
+    // they decide: sure, never, and the same answer for the same day in between
+    set(a, 80, 80, 'dating'); const r0 = rom.romValue(g, a);
+    const yes = close.closeOutcome(g, modern, { id: `close:love:${a}` });
+    ok(yes.ok && /wanted it too/.test(yes.hint) && /Do not describe it/.test(yes.hint), 'a loving partner welcomes it; by default the AI is told to cut away');
+    g.cfg.fade = false; ok(!/Do not describe it/.test(close.closeOutcome(g, modern, { id: `close:love:${a}` }).hint), 'fade to black can be turned off'); delete g.cfg.fade;
+    const act = needs.actionsHere(g, modern).find(x => x.id === `close:love:${a}`); const i0 = g.player.stats.intimacy;
+    needs.applyAction(g, modern, act);
+    ok(g.player.stats.intimacy === i0 + 60 && rom.romValue(g, a) > r0, 'welcomed: the need fills and the two grow closer');
+    // (both are glowing after that, which would lean the next answers and slow the need: sim/needtraits.ts, tested on its own)
+    { const PT = await D('sim/persontraits.js'); ok(PT.hasTrait(g, a, 'glowing') && PT.hasTrait(g, PT.PLAYER, 'glowing'), 'and both are glowing'); PT.removeTrait(g, a, 'glowing'); PT.removeTrait(g, PT.PLAYER, 'glowing'); }
+    set(a, 30, 42); living.approve(g, a, -living.approvalOf(g, a)); const r1 = rom.romValue(g, a);   // a crush who barely knows you: score 37.2, a kiss needs 50
+    const no = close.closeOutcome(g, modern, { id: `close:kiss:${a}` });
+    ok(!no.ok && /did not want that/.test(no.hint) && /does not give in/.test(no.hint) && rom.romValue(g, a) < r1, 'too soon: turned down, the AI is told so, and it costs a little');
+    ok(!ids().includes(`close:kiss:${a}`), 'turned down today: not offered again today');
+    g.day += 1; set(a, 30, 42); ok(ids().includes(`close:kiss:${a}`), 'the next day it can be tried again');
+    set(a, 50, 45);   // score 47: could go either way
+    const first = close.closeOutcome(structuredClone(g), modern, { id: `close:kiss:${a}` }).ok;
+    ok([1, 2, 3].every(() => close.closeOutcome(structuredClone(g), modern, { id: `close:kiss:${a}` }).ok === first), 'unsure: the same day gives the same answer');
+    ok(close.closeOutcome(g, modern, { id: 'cook' }) === null, 'other actions are not touched');
+    // the need itself
+    bring(); g.player.stats.intimacy = 50; g.tick = {}; at(g, g.day, 8 * 60); time.advance(g, modern, 1); time.advance(g, modern, 600);
+    ok(g.player.stats.intimacy === 30, `ten hours awake cost intimacy (${g.player.stats.intimacy})`);
+    const solo = needs.actionsHere({ ...g, player: { ...g.player, loc: 'home:player' } }, modern).find(x => x.id === 'close:solo');
+    g.player.loc = 'home:player'; needs.applyAction(g, modern, solo);
+    ok(g.player.stats.intimacy === 60, 'private time fills some of it');
+}
+// the people of the world have needs of their own
+{
+    const npc = await D('sim/npcneeds.js'); const intent = await D('sim/intent.js');
+    const run = () => { seed(4); const g = open(fixture('v0.1.0-modern.json')); const worst = {}; let zeroHours = 0, n = 0;
+        for (let h = 0; h < 14 * 24; h++) { time.advance(g, modern, 60); for (const r of Object.values(g.cast)) { const s = npc.npcOf(g, modern, r); n++; for (const k of npc.NPC_NEEDS) { if (s.n[k] <= 0) zeroHours++; worst[k] = Math.min(worst[k] ?? 100, s.n[k]); } } }
+        return { g, zeroHours, n, worst }; };
+    const t0 = Date.now(); const a = run(); const ms = Date.now() - t0; const b = run();
+    ok(JSON.stringify(a.g.npc) === JSON.stringify(b.g.npc), 'the same save and the same hours give the same people');
+    ok(Object.keys(a.g.npc).length === Object.keys(a.g.cast).length && Object.values(a.g.npc).every(s => npc.NPC_NEEDS.every(k => s.n[k] >= 0 && s.n[k] <= 100)), 'everyone has needs, all in range');
+    ok(a.zeroHours / (a.n * 5) < 0.02, `over two weeks people look after themselves (${a.zeroHours} need-hours at zero of ${a.n * 5})`);
+    ok(a.worst.hunger > 5, `nobody starves (${a.worst.hunger})`);
+    ok(ms < 4000, `two weeks of everyone's needs is quick (${ms} ms)`);
+    // a work day leaves its mark
+    const g = a.g; const who = Object.values(g.cast).find(r => modern.occupations.some(o => o.id === r.occupation) && r.routine.weekday.some(s => s[1] === 'work'));
+    const steps = who.routine.weekday; const start = steps.find(s => s[1] === 'work')[0]; const end = steps[steps.findIndex(s => s[1] === 'work') + 1]?.[0] ?? 23;
+    const mon = g.day + ((8 - ((g.day - 1) % 7) - 1) % 7) + 1;   // a weekday morning
+    const dayOf = (d) => ((d - 1) % 7 >= 5 ? d + 2 : d);
+    at(g, dayOf(mon), start * 60); time.advance(g, modern, 1); const e0 = npc.npcOf(g, modern, who).n.energy;
+    time.advance(g, modern, (end - start) * 60);
+    const e1 = npc.npcOf(g, modern, who).n.energy;
+    ok(e1 < e0 && /work/.test(npc.npcDay(g, modern, who)), `a shift costs energy and is part of their day (${e0} → ${e1}, "${npc.npcDay(g, modern, who)}")`);
+    // the AI is told, in a few words; the engine uses it
+    g.npc[who.avatar].n = { hunger: 80, energy: 8, social: 80, fun: 80, hygiene: 80 };
+    ok(/exhausted/.test(npc.npcLine(g, modern, [who])) && /Background only/.test(npc.npcLine(g, modern, [who])), 'the AI is told who is exhausted, as background');
+    ok(npc.npcWilling(g, modern, who).delta < 0, 'someone exhausted is less willing');
+    const ask = { size: 'medium', order: false }; who.met = true;
+    const tired = intent.willingness(g, modern, who, ask).score;
+    g.npc[who.avatar].n.energy = 80;
+    ok(intent.willingness(g, modern, who, ask).score > tired && !npc.npcLine(g, modern, [who]).includes('exhausted'), 'rested, they are more willing again');
+    g.npc[who.avatar].n = { hunger: 80, energy: 80, social: 5, fun: 80, hygiene: 80 };
+    ok(npc.npcWilling(g, modern, who).delta > 0 && /lonely/.test(npc.npcLine(g, modern, [who])), 'someone lonely is glad of company');
+    // an old save: people start as a person usually is at that hour; a long absence is not lived hour by hour
+    const g2 = open(fixture('v0.1.0-modern.json')); ok(!g2.npc, 'an old save has no needs for its people');
+    const s0 = npc.npcOf(g2, modern, Object.values(g2.cast)[0]);
+    ok(npc.NPC_NEEDS.every(k => s0.n[k] >= 20 && s0.n[k] <= 100), 'they start mid-life, not empty');
+    g2.day += 400; const t1 = Date.now(); npc.npcOf(g2, modern, Object.values(g2.cast)[0]);
+    ok(Date.now() - t1 < 200, 'a year later, only the last two days are lived through');
+    // the system can be turned off
+    const off = structuredClone(modern); off.id = 'nonpc'; off.features = { ...(off.features ?? {}), npclife: false }; W.registerWorld(off);
+    ok(!npc.npcLine(g, off, [who]) && npc.npcWilling(g, off, who).delta === 0 && !npc.npcFeels(g, off, who).length, 'off in a world: nothing is said or used');
+}
+// free time: what they feel like decides where they go (only now; work and sleep never move)
+{
+    const npc = await D('sim/npcneeds.js'); const people = await D('sim/people.js');
+    seed(4); const g = open(fixture('v0.1.0-modern.json'));
+    const ce = await D('sim/cityevents.js'); const fe = await D('sim/festivals.js'); const dl = await D('sim/daylife.js');
+    const sat0 = g.day + ((6 - ((g.day - 1) % 7) + 7) % 7);   // a Saturday
+    const free = Object.values(g.cast).find(r => r.routine.weekend.some(s => s[1] === 'leisure'));
+    // an afternoon of free time with nothing else on (no city event, festival or errand)
+    let sat = sat0, hr = 12;
+    find: for (let wk = 0; wk < 6; wk++) for (let h = 11; h <= 17; h++) {
+        const d = sat0 + wk * 7, t = d * 1440 + h * 60; at(g, d, h * 60);
+        if (people.routineStep(free, t)[1] === 'leisure' && !ce.eventSpot(g, modern, free.avatar, t) && !fe.festivalSpot(g, modern, t, { map: people.homeMapOf(g, modern, free) }) && !dl.breakNow(g, modern, free)) { sat = d; hr = h; break find; }
+    }
+    const tagsOf = (id) => modern.places.find(p => p.id === id)?.tags ?? [];
+    const feel = (n) => { at(g, sat, hr * 60); g.social = { ...(g.social ?? {}), with: [], stays: [], appts: [] }; g.npc = { [free.avatar]: { n: { hunger: 80, energy: 80, social: 80, fun: 80, hygiene: 80, ...n }, last: Math.floor((sat * 1440 + hr * 60) / 60) } }; return people.whereNow(g, modern, free); };
+    if (people.routineStep(free, sat * 1440 + hr * 60)[1] === 'leisure') {
+        const hungry = feel({ hunger: 5 });
+        ok(tagsOf(hungry).includes('food'), `hungry: somewhere with food (${hungry})`);
+        ok(/something to eat/.test(npc.npcDay(g, modern, free)), `and the AI can be told why they are there ("${npc.npcDay(g, modern, free)}")`);
+        const worn = feel({ energy: 5 });
+        ok(worn.startsWith('home:'), `worn out: staying in (${worn})`);
+        const fine = feel({});
+        ok(!fine.startsWith('home:'), `feeling fine: out somewhere (${fine})`);
+        const again = people.whereNow(g, modern, free); g.npc[free.avatar].n.hunger = 0;
+        ok(again === fine && people.whereNow(g, modern, free) === fine, 'the choice holds for that stretch of time, whatever changes meanwhile');
+        const off = structuredClone(modern); off.id = 'nonpc2'; off.features = { ...(off.features ?? {}), npclife: false }; W.registerWorld(off);
+        const a1 = (feel({ hunger: 5 }), people.routineAt(g, off, free, sat * 1440 + hr * 60)), a2 = (feel({ energy: 5 }), people.routineAt(g, off, free, sat * 1440 + hr * 60));
+        ok(a1 === a2, 'turned off in a world: the usual pick, whatever they feel');
+        ok(people.routineAt(g, modern, free, (sat + 7) * 1440 + hr * 60) === people.routineAt(g, modern, free, (sat + 7) * 1440 + hr * 60), 'another day is still the same each time it is asked');
+    } else ok(false, 'the fixture has someone free on a Saturday afternoon');
+    // work is a commitment: needs never move it
+    const worker = Object.values(g.cast).find(r => modern.occupations.some(o => o.id === r.occupation) && r.routine.weekday.some(s => s[1] === 'work'));
+    const ws = worker.routine.weekday.find(s => s[1] === 'work')[0]; const mon = sat + 2;
+    at(g, mon, ws * 60 + 30); g.npc = { [worker.avatar]: { n: { hunger: 0, energy: 0, social: 0, fun: 0, hygiene: 0 }, last: Math.floor((mon * 1440 + ws * 60 + 30) / 60) } };
+    ok(people.routineAt(g, modern, worker, mon * 1440 + ws * 60 + 30) === modern.occupations.find(o => o.id === worker.occupation).place, 'someone exhausted and starving is still at work on their shift');
+}
+// people meet each other, and their own news stays on their mind
+{
+    const npc = await D('sim/npcneeds.js'); const people = await D('sim/people.js'); const living = await D('sim/living.js'); const F = await D('sim/facts.js');
+    seed(4); const g = open(fixture('v0.1.0-modern.json'));
+    const [A, B, C] = Object.values(g.cast);
+    g.social = { ...(g.social ?? {}), with: [], appts: [], stays: [{ avatar: A.avatar, loc: 'park', until: 1e12 }, { avatar: B.avatar, loc: 'park', until: 1e12 }, { avatar: C.avatar, loc: 'park', until: 1e12 }] };
+    // an hour when none of the three is asleep or at work
+    let hr = -1; const sat = g.day + ((6 - ((g.day - 1) % 7) + 7) % 7);
+    for (let h = 10; h <= 20 && hr < 0; h++) if ([A, B, C].every(r => ['leisure', 'home'].includes(people.routineStep(r, sat * 1440 + h * 60)[1]))) hr = h;
+    at(g, sat, hr * 60); g.player.loc = 'home:player';
+    g.living.ties = []; g.living.pairs = []; living.setTie(g, { a: A.avatar, b: B.avatar, type: 'sibling', tone: 'good' });
+    for (const r of [A, B, C]) npc.npcOf(g, modern, r).n.social = 40;
+    const f0 = F.facts(g).length;
+    npc.meetings(g, modern);
+    ok(g.npc[A.avatar].n.social === 45 && g.npc[B.avatar].n.social === 45 && g.npc[C.avatar].n.social === 40, 'two people with a tie, in the same place, keep each other company; a stranger beside them does not');
+    ok(F.facts(g).length === f0 + 1 && F.facts(g).at(-1).who.includes(A.avatar) && F.facts(g).at(-1).who.includes(B.avatar), 'and it is remembered as a fact about the two of them');
+    ok(npc.npcDay(g, modern, A) === `here with ${B.name}`, `the AI can be told who they are with ("${npc.npcDay(g, modern, A)}")`);
+    npc.meetings(g, modern); g.minutes += 60; npc.meetings(g, modern);
+    ok(F.facts(g).length === f0 + 1, 'the same two are not written down again for a few days');
+    living.setTie(g, { a: A.avatar, b: C.avatar, type: 'sibling', tone: 'hostile' }); const c0 = g.npc[C.avatar].n.social;
+    npc.meetings(g, modern);
+    ok(g.npc[C.avatar].n.social === c0, 'people on bad terms do not seek each other out');
+    // news of their own life
+    npc.moodlet(g, modern, A.avatar, 'a promotion at work', 48, true);
+    ok(/happy \(a promotion at work\)/.test(npc.npcLine(g, modern, [A])) && npc.npcWilling(g, modern, A).delta >= 0, 'good news shows for a while');
+    npc.moodlet(g, modern, A.avatar, 'a breakup', 96, false);
+    ok(/low \(a breakup\)/.test(npc.npcLine(g, modern, [A])) && npc.npcWilling(g, modern, A).delta < 0, 'bad news weighs on them, and on what they are willing to do');
+    g.day += 5; npc.npcOf(g, modern, A);
+    ok(!/breakup|promotion/.test(npc.npcLine(g, modern, [A])), 'and it passes');
+}
+// who people are, read from their card in plain words
+{
+    const npc = await D('sim/npcneeds.js'); const people = await D('sim/people.js');
+    const T = (t) => npc.readTraits(t).sort().join();
+    ok(T('Bianca is a bubbly, outgoing barista who surfs every morning and loves to cook.') === 'athletic,foodie,outgoing', `traits from a description (${T('Bianca is a bubbly, outgoing barista who surfs every morning and loves to cook.')})`);
+    ok(T('A shy bookworm who prefers staying in.') === 'bookish,homebody,shy' && T('Good-natured by nature. Sells candy.') === '', 'shy and bookish are read; ordinary words are not');
+    ok(T('Outgoing at work but shy with strangers.') === '', 'opposites cancel out');
+    seed(4); const g = open(fixture('v0.1.0-modern.json')); const r = Object.values(g.cast)[0];
+    const lonely = (traits) => { at(g, 30, 8 * 60); g.npc = { [r.avatar]: { n: { hunger: 90, energy: 90, social: 90, fun: 90, hygiene: 90 }, last: Math.floor((30 * 1440 + 8 * 60) / 60), p: [1, traits] } }; g.social = { ...(g.social ?? {}), with: [], appts: [], stays: [] };
+        const saved = r.routine; r.routine = { weekday: [[0, 'home']], weekend: [[0, 'home']] }; time.advance(g, modern, 6 * 60); r.routine = saved; return g.npc[r.avatar].n.social; };
+    const plain = lonely([]), out = lonely(['outgoing']), shy = lonely(['shy']);
+    ok(out < plain && shy > plain, `an outgoing person misses company sooner, a shy one later (${out} < ${plain} < ${shy})`);
+    ok(npc.traitsOf(g, r).join() === 'shy', 'what was read is kept with the save');
 }
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

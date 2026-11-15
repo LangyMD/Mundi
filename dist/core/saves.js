@@ -114,9 +114,10 @@ export function repair(g, w) {
         }
     }
     // needs the world added since the save was made start at their usual value
+    // (an optional need gets its value when a game turns it on)
     p.stats ??= {};
     for (const s of w.statuses ?? [])
-        if (typeof p.stats[s.id] !== 'number')
+        if (!s.optional && typeof p.stats[s.id] !== 'number')
             p.stats[s.id] = s.start;
     // the course you are taking
     const l = p.learning;

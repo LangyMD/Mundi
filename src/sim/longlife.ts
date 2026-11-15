@@ -7,6 +7,7 @@ import { onDay } from './hooks.js';
 import { note } from './facts.js';
 import { npcCareer } from './work.js';
 import { lifeMoment } from './happenings.js';
+import { moodlet } from './npcneeds.js';
 import { couples, setTie, removeTie, liveTogether, homeKey } from './living.js';
 
 const H = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; };
@@ -30,6 +31,7 @@ function couplesMoveOn(g: Save, w: WorldDef): string[] {
             const text = t.replace('{0}', A.name).replace('{1}', B.name);
             if (known) out.push(text);
             for (const x of [a, b]) lifeMoment(g, w, x, text, tone);   // the people close to you tell you
+            for (const x of [a, b]) moodlet(g, w, x, /engaged/.test(t) ? 'just got engaged' : /married/.test(t) ? 'just got married' : 'a breakup', tone === 'good' ? 72 : 96, tone === 'good');
         };
         if (info.stage === 'dating') {
             if (days >= 14 && rnd(g, `engage|${k}`) < 0.05) { info.stage = 'engaged'; info.since = g.day; tell('{0} and {1} got engaged!', 'life'); }
@@ -64,6 +66,7 @@ function careersMoveOn(g: Save, w: WorldDef): string[] {
         note(g, t, [r.name, ranks[rank + 1].name], [r.avatar], o.place, 'work');
         if (r.met) out.push(t.replace('{0}', r.name).replace('{1}', ranks[rank + 1].name));
         lifeMoment(g, w, r.avatar, t.replace('{0}', r.name).replace('{1}', ranks[rank + 1].name), 'good');
+        moodlet(g, w, r.avatar, 'a promotion at work', 48, true);
     }
     return out;
 }

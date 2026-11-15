@@ -69,6 +69,8 @@ export interface StatusDef {
     id: string; name: string; icon: string; color: string; start: number; max: number; hud?: boolean;
     /** `rpg`: only in the RPG game mode (health…); `off`: turned off in a Custom world. */
     rpg?: boolean; off?: boolean;
+    /** An optional need (social life…): out of the game unless turned on for that game (This world → Rules / Needs). */
+    optional?: boolean;
     decay?: { amount: number; everyMinutes: number; awakeOnly?: boolean };
     zero?: {
         text?: string; place?: string; cost?: number; restore?: number;
@@ -81,6 +83,10 @@ export interface StatusDef {
 // comes back to, your mood, how much the people who saw it think less of you, and the fact they remember
 // ({u} you, {0} the place).
 export interface Crisis { after: number; text: string; place?: string; cost?: number; restore?: number; mood?: number; shame?: number; seen?: string }
+// A trait, a habit or a hobby level that changes how fast something drops or fills. `target`: a need's id, 'bond' or
+// 'romance'. `decay`: × how fast it drops by itself; `gain`: × what fills it (`actions`: only from these actions).
+// Everything that applies is multiplied together and kept between ×0.5 and ×2.
+export interface ModifierDef { trait?: string; hobby?: string; level?: number; target: string; decay?: number; gain?: number; actions?: string[] }
 export interface ActionDef {
     id: string; name: string; label: string; icon?: string; cost: number; minutes: number;
     tags?: string[]; place?: string; home?: boolean; anywhere?: boolean;
@@ -235,6 +241,8 @@ export interface WorldDef {
     cityEvents?: CityEventDef[];
     /** Hobbies that level up with practice (guitar, painting…): a bonus on their rolls, more money, jobs that ask for them. */
     hobbies?: HobbyDef[];
+    /** What traits, habits and hobby levels do to needs and relationships (none given: Mundi's usual table, sim/modifiers.ts). */
+    modifiers?: ModifierDef[];
     /** Pets and familiars you can buy and keep. */
     pets?: PetDef[];
     /** Crafting recipes (ingredients → a good or gem; a d20 check; legendary ones are named by you). */
@@ -347,15 +355,18 @@ export const gameMode = (w: WorldDef | null | undefined): GameMode => {
 // (no energy, and no health at stake). `g` is the game, when the caller has it.
 export const HOME_NEEDS = ['hunger', 'thirst', 'mood', 'hygiene'];
 export const homeNeedsOn = (g: unknown) => !!(g as any)?.cfg?.needs;
+// An optional need (social life…) is only in play in a game that turned it on (cfg.optNeeds).
+export const optionalNeeds = (w: WorldDef) => w.statuses.filter(s => s.optional && !s.off && !s.rpg);
+export const optNeedOn = (g: unknown, id: string) => !!(g as any)?.cfg?.optNeeds?.includes(id);
 export const activeStatuses = (w: WorldDef, g?: unknown) => (isScenario(w) && g !== undefined
-    ? (homeNeedsOn(g) ? w.statuses.filter(s => !s.off && HOME_NEEDS.includes(s.id)) : [])
-    : w.statuses.filter(s => !s.off && !(s.rpg && gameMode(w) === 'lifesim') && (s.rpg || systemOn(w, 'needs'))));
+    ? (homeNeedsOn(g) ? w.statuses.filter(s => !s.off && (s.optional ? optNeedOn(g, s.id) : HOME_NEEDS.includes(s.id))) : [])
+    : w.statuses.filter(s => !s.off && !(s.rpg && gameMode(w) === 'lifesim') && (s.rpg || systemOn(w, 'needs')) && (!s.optional || optNeedOn(g, s.id))));
 
 // The game's systems. Each one can be turned off in a world (features.<id> = false): then it is gone from the HUD,
 // the phone or journal, the AI's prompt, and the engine stops running it. What the save holds for it is kept, so
 // turning it back on picks up where it was. `apps`: the apps it owns; `blocks`: the prompt blocks it owns.
 export type SystemId = 'living' | 'neighbors' | 'consults' | 'needs' | 'jobs' | 'bills' | 'courses' | 'shop' | 'breakdowns' | 'plans' | 'romance' | 'family' | 'social' | 'rumors' | 'diary' | 'goals'
-    | 'habits' | 'reputation' | 'identity' | 'pets' | 'mentors' | 'letters' | 'festivals' | 'factions' | 'faith' | 'legends' | 'talents' | 'institutions' | 'trade' | 'property' | 'banks' | 'farming' | 'auctions' | 'taxes' | 'skies' | 'ecology' | 'debuffs' | 'injuries' | 'fatigue' | 'elements' | 'mounts' | 'prison' | 'towers' | 'sentient' | 'crafting' | 'trophies' | 'contracts' | 'soulbound' | 'dice' | 'pins' | 'events' | 'hobbies';
+    | 'habits' | 'reputation' | 'identity' | 'pets' | 'mentors' | 'letters' | 'festivals' | 'factions' | 'faith' | 'legends' | 'talents' | 'institutions' | 'trade' | 'property' | 'banks' | 'farming' | 'auctions' | 'taxes' | 'skies' | 'ecology' | 'debuffs' | 'injuries' | 'fatigue' | 'elements' | 'mounts' | 'prison' | 'towers' | 'sentient' | 'crafting' | 'trophies' | 'contracts' | 'soulbound' | 'dice' | 'pins' | 'events' | 'hobbies' | 'npclife';
 export interface HabitDef { id: string; name: string; desc?: string; trait: string; actions?: string[]; tags?: string[]; hours?: [number, number]; count: number; days: number; lose?: number; daily?: Record<string, number> }
 export interface CityEventDef {
     id: string; name: string; icon?: string; desc?: string; place: string;
@@ -438,6 +449,7 @@ export const SYSTEMS: SystemDef[] = [
     { id: 'letters', name: 'Letters from afar', desc: 'friends in other towns never write, and distance never cools a friendship.', apps: [], blocks: [] },
     { id: 'festivals', name: 'Festivals', desc: 'no festivals in the calendar.', apps: [], blocks: [] },
     { id: 'events', name: 'City events', desc: 'no shows, matches or fairs in the city calendar.', apps: [], blocks: [] },
+    { id: 'npclife', name: 'People have needs', desc: 'the people of the world are never tired, hungry, lonely or bored.', apps: [], blocks: ['npcstate'] },
     { id: 'hobbies', name: 'Hobbies', desc: 'practice never levels up a hobby (guitar, painting…), and no job asks for one.', apps: [], blocks: [] },
     { id: 'factions', name: 'Factions and guilds', desc: 'no guilds, orders, gangs or kingdoms to join or lead.', apps: ['factions'], blocks: [] },
     { id: 'legends', name: 'Legends', desc: 'your deeds never become tales that travel and grow.', apps: [], blocks: [] },

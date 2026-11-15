@@ -16,6 +16,7 @@ import { isOpen } from './daynight.js';
 import { placeOn, extraRooms } from './places.js';
 import { partySpot } from './houseparty.js';
 import { guestSpot } from './guests.js';
+import { npcOn, chooseSpot } from './npcneeds.js';
 
 const hash = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 
@@ -42,10 +43,12 @@ function leisurePool(g: Save, w: WorldDef, r: Resident, day: number) {
     if (hash(`${r.avatar}|out|${day}`) % 3 === 0) { const away = w.places.filter(p => fun(p) && p.map !== homeMap).map(p => p.id); if (away.length) return [...mine, ...away]; }
     return mine;
 }
-function leisureSpot(g: Save, w: WorldDef, r: Resident, day: number, stepHour: number) {
+// The places her free time could take her at that hour (open, and dry when it rains). `stayIn`: nothing is open, or
+// the rain keeps her home.
+function leisureOptions(g: Save, w: WorldDef, r: Resident, day: number, stepHour: number): { list: string[]; stayIn: boolean } {
     let list = leisurePool(g, w, r, day);
     // a place closed at that hour is out (the living world); with all of them closed, she stays home
-    if (systemOn(w, 'living')) { list = list.filter(id => isOpen(w, id, stepHour * 60)); if (!list.length) return `home:${r.avatar}`; }
+    if (systemOn(w, 'living')) { list = list.filter(id => isOpen(w, id, stepHour * 60)); if (!list.length) return { list, stayIn: true }; }
     // rain changes plans: outdoor spots are skipped for somewhere with a roof (or home)
     // (a region with a weather of its own may be dry while it rains elsewhere)
     const wet = (id: string) => weatherAt(g, w, id, day).rain;
@@ -54,9 +57,23 @@ function leisureSpot(g: Save, w: WorldDef, r: Resident, day: number, stepHour: n
     if (raining) {
         const dry = list.filter(id => !outdoors(w, id) || !wet(id));
         list = dry.length ? dry : w.places.filter(p => (p.tags ?? []).some(t => t === 'food' || t === 'shop')).map(p => p.id);
-        if (!list.length || hash(`${r.avatar}|rain|${day}`) % 3 === 0) return `home:${r.avatar}`;
+        if (!list.length || hash(`${r.avatar}|rain|${day}`) % 3 === 0) return { list, stayIn: true };
     }
-    return list[hash(`${r.avatar}|${day}|${stepHour}`) % list.length] ?? `home:${r.avatar}`;
+    return { list, stayIn: false };
+}
+function leisureSpot(g: Save, w: WorldDef, r: Resident, day: number, stepHour: number) {
+    const { list, stayIn } = leisureOptions(g, w, r, day, stepHour);
+    return stayIn ? `home:${r.avatar}` : list[hash(`${r.avatar}|${day}|${stepHour}`) % list.length] ?? `home:${r.avatar}`;
+}
+// Free time right now: what she feels like decides (hungry: somewhere with food; worn out: home; bored or lonely:
+// out), when the people of this world have needs (sim/npcneeds.ts). Any other moment (the past, the future), or
+// with that turned off: her usual pick.
+function freeTimeSpot(g: Save, w: WorldDef, r: Resident, at: number, stepHour: number, homeId: string) {
+    const day = Math.floor(at / 1440);
+    if (!npcOn(w) || Math.floor(at / 60) !== Math.floor(nowAbs(g) / 60)) return leisureSpot(g, w, r, day, stepHour);
+    const hourNow = Math.floor((at % 1440) / 60);
+    const { list, stayIn } = leisureOptions(g, w, r, day, hourNow);
+    return chooseSpot(g, w, r, stayIn ? [] : list, at, stepHour, isScenario(w) ? '' : homeId) ?? leisureSpot(g, w, r, day, stepHour);
 }
 
 // The step of her routine at a given moment (absolute minutes): [start hour, 'home' | 'work' | 'leisure' | place id].
@@ -97,7 +114,7 @@ function routineSpot(g: Save, w: WorldDef, r: Resident, at: number): string {
         const job = systemOn(w, 'jobs') ? w.occupations.find(o => o.id === r.occupation) : null;
         return job ? job.place : leisureSpot(g, w, r, day, start);
     }
-    if (target === 'leisure') return eventSpot(g, w, r.avatar, at) ?? festivalSpot(g, w, at, { map: homeMapOf(g, w, r) }) ?? leisureSpot(g, w, r, day, start);   // on a festival day, free time is spent there
+    if (target === 'leisure') return eventSpot(g, w, r.avatar, at) ?? festivalSpot(g, w, at, { map: homeMapOf(g, w, r) }) ?? freeTimeSpot(g, w, r, at, start, homeId);   // on a festival day, free time is spent there
     return w.places.some(p => p.id === target) && placeOn(g, w, target) ? target : isScenario(w) ? leisureSpot(g, w, r, day, start) : homeId;
 }
 

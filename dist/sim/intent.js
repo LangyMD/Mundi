@@ -3,6 +3,7 @@ import { approvalOf } from './living.js';
 import { friendTier } from './romance.js';
 import { isWorking, isSleeping } from './plans.js';
 import { nowAbs } from '../core/store.js';
+import { npcWilling } from './npcneeds.js';
 /* ---------- words ---------- */
 const IRREGULAR = {
     took: 'take', taken: 'take', ate: 'eat', eaten: 'eat', drank: 'drink', drunk: 'drink', made: 'make', went: 'go', gone: 'go', ran: 'run', swam: 'swim',
@@ -170,6 +171,11 @@ export function willingness(g, w, r, ask) {
     if (ask.order) {
         score -= 10;
         why.push('it was put as an order, which people resent');
+    }
+    const state = npcWilling(g, w, r); // how their own day left them (tired, hungry, lonely)
+    if (state.delta) {
+        score += state.delta;
+        why.push(state.why);
     }
     const need = NEED[ask.size];
     const lean = score >= need + 20 ? 'yes' : score >= need ? 'likely' : score >= need - 15 ? 'unsure' : 'no';

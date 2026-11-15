@@ -25,6 +25,12 @@ export const DEFAULT_TRAITS: PersonTrait[] = [
     { id: 'foodie', name: 'Foodie', desc: 'cares a great deal about food', kind: 'lasting', grow: ['cook', 'restaurant', 'meal', 'bake', 'dinner'] },
     { id: 'homebody', name: 'Homebody', desc: 'happiest at home', kind: 'lasting', grow: ['watch tv', 'film', 'movie', 'video game', 'board game'] },
     { id: 'outdoorsy', name: 'Outdoorsy', desc: 'would rather be outside', kind: 'lasting', grow: ['hike', 'fish', 'camp', 'walk', 'garden'] },
+    // company and closeness (sim/needtraits.ts: they change the Social and Intimacy needs, and how people take to being close)
+    { id: 'social-butterfly', name: 'Social butterfly', desc: 'thrives on company and wilts without it', kind: 'lasting', grow: ['coffee', 'chat', 'hang out', 'catch up', 'gossip'] },
+    { id: 'loner', name: 'Loner', desc: 'needs little company and tires of a crowd', kind: 'lasting' },
+    { id: 'affectionate', name: 'Affectionate', desc: 'warm and physically close with the people they love', kind: 'lasting', grow: ['hug', 'cuddle', 'kiss', 'make love'] },
+    { id: 'reserved', name: 'Reserved', desc: 'keeps people at arm\'s length and is slow to accept touch', kind: 'lasting' },
+    { id: 'glowing', name: 'Glowing', desc: 'happy and at ease after time with someone dear', kind: 'state', days: 1 },
     { id: 'hurt', name: 'Hurt', desc: 'injured and moving carefully', kind: 'state', days: 5 },
     { id: 'sick', name: 'Sick', desc: 'unwell, low on energy', kind: 'state', days: 3 },
     { id: 'heartbroken', name: 'Heartbroken', desc: 'grieving a relationship', kind: 'state', days: 7 },
