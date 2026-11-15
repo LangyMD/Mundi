@@ -32,6 +32,14 @@ export interface Place {
     closed?: string[];
     /** The scene's background for some parts of the day (period id → picture). */
     bgs?: Record<string, string>;
+    /** A room: the building it is in (sim/interiors.ts). Rooms are not on the map; you walk to them from inside. */
+    in?: string;
+    /** A room: who may go in. Left out: public. */
+    access?: 'public' | 'staff' | 'private' | 'locked';
+    /** A building: its rooms on its floors (the room boxes are in percent of the floor's picture). */
+    interior?: { entry: string; floors: { id: string; name: string; image?: string; images?: Record<string, string>; ratio?: number; kind?: 'plan' | 'area' }[]; rooms: { id: string; floor: string; x: number; y: number; w: number; h: number }[] };
+    /** What people wear here by themselves (sim/looks.ts): a category such as 'swimwear' or 'athletic', or 'outdoors' / 'indoors'. Left out: guessed from the tags and the name. */
+    wear?: string;
     /** A pin that opens another map (a city on the region map) instead of being a place. */
     link?: string;
     /** A scenario: a room that is off unless the player chooses it when starting (the rooms are picked per game). */
@@ -76,6 +84,8 @@ export interface Crisis { after: number; text: string; place?: string; cost?: nu
 export interface ActionDef {
     id: string; name: string; label: string; icon?: string; cost: number; minutes: number;
     tags?: string[]; place?: string; home?: boolean; anywhere?: boolean;
+    /** In a building with rooms: the kinds of room (room tags) it can be done in ("shower" needs a bath). */
+    rooms?: string[];
     /** An outing (a scenario): you leave the house off-screen for a while (work, errands, a night out) and come back. */
     outing?: boolean;
     effects: Record<string, number>;
@@ -188,7 +198,9 @@ export interface WorldDef {
     /** `kinds.<kind>.bills`: what each kind of home pays a week for each expense (by expense id).
      *  `expenses`: the bills besides the rent (water, power, firewood, taxes…); each `blocks` the actions it stops while
      *  it is a week unpaid. Without it, a world has water and power. */
-    homes: { zones: HomeZone[]; kinds: Record<string, { name: string; desc: string; image?: string; images?: Record<string, string>; bills?: Record<string, number> }>;
+    homes: { zones: HomeZone[]; kinds: Record<string, { name: string; desc: string; image?: string; images?: Record<string, string>; bills?: Record<string, number>; /** the rooms of every home of this kind (sim/interiors.ts) */ interior?: HomePlan }>;
+        /** Plans of homes with rooms, by id; an address names its plan in `zones[].interiors` ({ spot index: plan id }). */
+        plans?: Record<string, HomePlan>;
         expenses?: { id: string; name: string; icon?: string; blocks?: string[]; cut?: string; back?: string }[] };
     statuses: StatusDef[];
     actions: ActionDef[];
@@ -254,6 +266,14 @@ export interface WorldDef {
 }
 
 // The phone's apps, as the Modern style has them (a world can rename them, change icons or turn them off).
+/** A home with rooms: floors, room boxes (percent of the floor's picture) and what each room is (`templates`, by the box's id). */
+export interface HomePlan {
+    name?: string; entry: string;
+    floors: { id: string; name: string; image?: string; images?: Record<string, string>; ratio?: number }[];
+    rooms: { id: string; floor: string; x: number; y: number; w: number; h: number }[];
+    templates: { id: string; name: string; tags?: string[]; desc?: string; event?: string; bg?: string; bgs?: Record<string, string>; access?: 'public' | 'private' | 'locked';
+        /** a bedroom: 'one' person's, or a 'couple''s */ owner?: 'one' | 'couple'; /** a bedroom nobody of the household takes */ guest?: boolean; /** a duplex: the flat it belongs to */ unit?: number; wear?: string; door?: boolean }[];
+}
 export const DEFAULT_APPS: AppDef[] = [
     { id: 'messages', name: 'Messages', icon: 'chat', color: '#34c759', on: true },
     { id: 'people', name: 'People', icon: 'users', color: '#ff9f0a', on: true },
@@ -262,6 +282,7 @@ export const DEFAULT_APPS: AppDef[] = [
     { id: 'homes', name: 'Homes', icon: 'home', color: '#ff375f', on: true },
     { id: 'social', name: 'Chirp', icon: 'at', color: '#1d9bf0', on: true },
     { id: 'dating', name: 'Spark', icon: 'flame', color: '#ff4f6d', on: true },
+    { id: 'photos', name: 'Photos', icon: 'image', color: '#30b0c7', on: true },
     { id: 'plans', name: 'Calendar', icon: 'calendar', color: '#ff9500', on: true },
     { id: 'journal', name: 'Journal', icon: 'book', color: '#8e6cf0', on: true },
     { id: 'shop', name: 'Shop', icon: 'wallet', color: '#16c79a', on: true },

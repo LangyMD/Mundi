@@ -2,6 +2,50 @@
 
 ## Unreleased (this fork)
 
+- **Rooms inside homes:** a world file can give homes rooms too (`homes.plans`, named per address by
+  `homes.zones[].interiors`, or `interior` on a kind of home). Your home and other people's then have a floor plan
+  like a building. Bedrooms are handed to the household (a character can name theirs; a couple's room holds two; a
+  guest room stays free). At night people are in their bedrooms, by day in the shared rooms; visitors are in the
+  living room. Your own home is open to you; someone's bedroom opens when you are close or together; the private
+  rooms of someone else's home stay shut. A duplex gives each flat its own rooms plus the shared ones.
+- **Rooms inside places:** a place in the world file can have an `interior` (floors, and rooms that are places of
+  their own with `in: <building>`). Arriving puts you in its entry; the other rooms are listed with the things to
+  do, and "Floor plan" shows the building with who is in each room. Walking between rooms takes no time. The scene
+  holds only the people in your room; staff are in the room their job names (`room` on the occupation), visitors
+  keep to the public rooms. Rooms can be `staff`, `private` or `locked`. What you can do follows the room (its tags,
+  and `rooms` on an action), and the AI is told the room and who is elsewhere in the building. No built-in world
+  has rooms yet; homes do not have them yet.
+- **Places that change:** This world → Places. Close a place for a while with a reason (or until you reopen it),
+  take it off the map, rename it, or add to how it looks. The change lives in the save; the world file is not
+  touched. People stop going to a closed or hidden place, the map and the scene follow, and the AI is told what
+  changed here lately and what is closed in town.
+- **Traits for people:** the people of the world (and you) can now have traits: lasting ones (party animal,
+  athletic, bookworm, foodie, homebody, outdoorsy) and states that pass by themselves (hurt, sick, heartbroken,
+  exhausted). A job counts as a trait by itself. Doing a thing with someone on five different days brings its trait
+  out in them (working out together → athletic); stop for two weeks and it fades. Add or remove traits by hand, or
+  make your own, on their page in People. The AI is told (AI context → Who they are lately). A world file can list
+  its own `traits` and a `traitPriority` order.
+- **Picture sets for traits:** a character can have extra picture folders for a trait or a combination, named
+  `<traits>--<outfit folder>` (`hurt--everyday`, `hurt.party-animal--everyday`, `career-nurse--career`). The set
+  covering the most of their current traits shows; an outfit the set lacks falls back to the usual pictures.
+- **Photos on the phone:** a new Photos app gathers the pictures of this game (those in the chat and those posted
+  on Chirp) by person. Who is in a picture is guessed from who sent it; open a picture to change who is in it, and
+  that is kept in the save. Each person's page in People links to their photos.
+- **Clothes the game keeps track of:** everyone in the scene, and you, now have a look in the save: a kind of outfit
+  (everyday, formal, athletic, sleepwear, party, swimwear, hot weather, cold weather, work) and a layer (with
+  outerwear, the outfit, underwear, nothing). The game changes it by itself: sleepwear at home at night, work clothes
+  on shift, swimwear at the beach or pool, athletic at the gym, a coat outdoors in winter or rain, light clothes on a
+  sunny summer day. Click a sprite → Clothes to set it by hand (it then stays until "As the moment asks"). The AI is
+  told what people wear (AI context → Clothes block).
+- **Pictures follow the look:** a character with folders named `everyday`, `formal-outer`, `underwear`… in their
+  Expressions folder shows the pictures of the look they wear now, falling back to the nearest folder they have. An
+  `outfits.json` beside them (written by the card generator) gives the AI the words for each outfit. Characters
+  without those folders look as before, and outfits put on the old way are kept.
+- **A narrator:** This world → AI context → AI calls. When you arrive somewhere, the narrator describes the place at
+  that hour and who is there (one AI call; or a plain line from the game with no call; or nothing). When you do
+  something (a shower, cooking, a film), the narrator tells how it goes instead of whichever character happens to be
+  in the room, and tells who came in or left while it lasted. "A character who is there answers" keeps the old way.
+  If the AI gives no answer, the plain line is used. Not on arrivals from room to room in a Home.
 - **Free text in the message box:** Settings → Game → Message box. Keep the Say / Do / Story / See buttons, add a
   Free mode beside them, or hide the buttons and write freely. Free text is sent exactly as written, so one line can
   mix what you say and do. In free text, a line that starts with `>` steers the story and one that starts with `?`

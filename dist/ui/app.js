@@ -1,4 +1,6 @@
 import { drawThumbs } from './thumbs.js';
+import { roomsPlanHtml } from './roomsui.js';
+import { hereWith } from '../sim/interiors.js';
 import { htmlText } from '../core/safe.js';
 import { deliverAsk } from '../sim/happenings.js';
 import { deliverLetter } from '../sim/letters.js';
@@ -45,7 +47,7 @@ import { runPlans, PL } from './plans.js';
 import { syncNative, releaseNative, guardBackgrounds } from './native.js';
 import { phoneHtml, P as phone, feedTick } from './phone.js';
 import { advance, period, weekday } from '../sim/time.js';
-import { presentAt, residents, whereNow } from '../sim/people.js';
+import { residents, whereNow } from '../sim/people.js';
 import { syncScene } from '../sim/game.js';
 import { refreshPrompt } from '../sim/prompt.js';
 const root = () => document.getElementById(ROOT_ID);
@@ -139,7 +141,7 @@ export function render() {
     const keep = {};
     main.querySelectorAll('[data-keep]').forEach(el => { keep[el.dataset.keep] = { top: el.scrollTop, h: el.scrollHeight, atEnd: el.scrollHeight - el.scrollTop - el.clientHeight < 40 }; });
     // only what changed is redrawn (morph), so nothing else on screen "resets"
-    morph(main, `${body()}${inGame() ? hudHtml() + phoneHtml() + helpHtml() + coursesHtml() + journeyHtml() + rpgOverlays() + combatHtml() + audienceHtml() + arrestHtml() + diceHtml() : ''}${updateHtml()}${whatsNewHtml()}${tutorialHtml()}${state.busy ? `<div class="mu-busy"><i></i><span>${state.busy}…</span></div>` : ''}`);
+    morph(main, `${body()}${inGame() ? hudHtml() + phoneHtml() + helpHtml() + coursesHtml() + journeyHtml() + roomsPlanHtml() + rpgOverlays() + combatHtml() + audienceHtml() + arrestHtml() + diceHtml() : ''}${updateHtml()}${whatsNewHtml()}${tutorialHtml()}${state.busy ? `<div class="mu-busy"><i></i><span>${state.busy}…</span></div>` : ''}`);
     {
         const g = game();
         rainAmbience(!!g && inGame() && (state.view === 'map' || state.view === 'scene') && weatherHere(g, getWorld(g.world)).rain);
@@ -409,7 +411,7 @@ export function mount() {
         if (asking || !state.open || !g || !w || !inGame() || state.busy || state.generating)
             return;
         asking = true;
-        deliverAsk(g, w, a => isWith(g, a) || presentAt(g, w, g.player.loc).some(r => r.avatar === a))
+        deliverAsk(g, w, a => isWith(g, a) || hereWith(g, w).some(r => r.avatar === a))
             .then(async (name) => name || deliverLetter(g, w)) // or a letter from a friend far away
             .then(name => { if (name) {
             saveGame();
@@ -448,7 +450,7 @@ export function mount() {
     }, 1000);
     return r;
 }
-export const peopleHere = () => { const g = game(); const w = g && getWorld(g.world); return g && w ? presentAt(g, w, g.player.loc) : []; };
+export const peopleHere = () => { const g = game(); const w = g && getWorld(g.world); return g && w ? hereWith(g, w) : []; };
 export const openOnStart = () => settings().openOnStart;
 // The clock card, the place chip under it and the map's tabs under that: stacked by measuring, so a bigger HUD (its
 // scale, a festival line, a long place name) never makes them overlap.

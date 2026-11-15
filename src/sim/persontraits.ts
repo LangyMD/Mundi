@@ -1,0 +1,171 @@
+// Traits for the people of the world (and you): who someone is lately. Lasting ones (party animal, athletic) and
+// states with an end date (hurt, sick). A job counts as a trait by itself (`career-<occupation id>`). You change
+// someone's traits by what you do together, often; by hand; or through the game's own events. The AI is told, and a
+// character's pictures can have their own sets for a trait or a combination (ui/looksui.ts).
+import { state, nowAbs, type Save, type Resident } from '../core/store.js';
+import type { WorldDef } from '../core/world.js';
+
+export interface PersonTrait {
+    id: string; name: string;
+    /** what the AI is told, after the name: "goes out most nights, loves a crowd" */ desc?: string;
+    /** lasting: part of who they are; state: passes by itself */ kind: 'lasting' | 'state';
+    /** state: how many days it lasts when nothing says otherwise */ days?: number;
+    /** doing these things with you, often, brings it: words looked for in the action's name ("work out", "gym") */ grow?: string[];
+    /** how many times together it takes (default 5) */ need?: number;
+}
+export interface HasTrait { id: string; since: number; until?: number; source: 'hand' | 'together' | 'event' | 'story'; note?: string }
+/** Your own character's key (the same as in sim/looks.ts). */
+export const PLAYER = '__player';
+
+// The traits every world has unless its file lists its own (`traits`).
+export const DEFAULT_TRAITS: PersonTrait[] = [
+    { id: 'party-animal', name: 'Party animal', desc: 'goes out most nights and loves a crowd', kind: 'lasting', grow: ['drink', 'bar', 'club', 'party', 'dance', 'night out'] },
+    { id: 'athletic', name: 'Athletic', desc: 'trains often and it shows', kind: 'lasting', grow: ['work out', 'workout', 'gym', 'run', 'swim', 'treadmill', 'train', 'sport'] },
+    { id: 'bookworm', name: 'Bookworm', desc: 'always has a book going', kind: 'lasting', grow: ['read', 'library', 'study', 'book'] },
+    { id: 'foodie', name: 'Foodie', desc: 'cares a great deal about food', kind: 'lasting', grow: ['cook', 'restaurant', 'meal', 'bake', 'dinner'] },
+    { id: 'homebody', name: 'Homebody', desc: 'happiest at home', kind: 'lasting', grow: ['watch tv', 'film', 'movie', 'video game', 'board game'] },
+    { id: 'outdoorsy', name: 'Outdoorsy', desc: 'would rather be outside', kind: 'lasting', grow: ['hike', 'fish', 'camp', 'walk', 'garden'] },
+    { id: 'hurt', name: 'Hurt', desc: 'injured and moving carefully', kind: 'state', days: 5 },
+    { id: 'sick', name: 'Sick', desc: 'unwell, low on energy', kind: 'state', days: 3 },
+    { id: 'heartbroken', name: 'Heartbroken', desc: 'grieving a relationship', kind: 'state', days: 7 },
+    { id: 'exhausted', name: 'Exhausted', desc: 'worn out', kind: 'state', days: 2 },
+    { id: 'pregnant', name: 'Pregnant', desc: 'expecting a child', kind: 'state', days: 270 },
+];
+const slug = (s: string) => String(s ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+export const traitId = slug;
+export const careerTrait = (occupation: string) => `career-${slug(occupation)}`;
+export const isCareer = (id: string) => id.startsWith('career-');
+
+// The traits of this game: the world's own list (or the usual one), plus the ones you made up in this save.
+const own = (g: Save): PersonTrait[] => ((((g as any).cfg ??= {}).traits ??= []) as PersonTrait[]);
+export function traitDefs(g: Save, w: WorldDef | null | undefined): PersonTrait[] {
+    const base = ((w as any)?.traits as PersonTrait[] | undefined)?.length ? (w as any).traits as PersonTrait[] : DEFAULT_TRAITS;
+    const out = [...base]; for (const t of own(g)) if (!out.some(x => x.id === t.id)) out.push(t);
+    return out;
+}
+export function traitDef(g: Save, w: WorldDef | null | undefined, id: string): PersonTrait {
+    const d = traitDefs(g, w).find(t => t.id === id); if (d) return d;
+    if (isCareer(id)) { const o = w?.occupations?.find(x => careerTrait(x.id) === id); return { id, name: o?.name ?? id.slice(7), kind: 'lasting' }; }
+    return { id, name: id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' '), kind: 'lasting' };
+}
+// A trait of your own for this save ("Goth phase"). Returns its id ('' when the name is empty).
+export function makeTrait(g: Save, w: WorldDef | null | undefined, name: string, kind: 'lasting' | 'state' = 'lasting'): string {
+    const id = slug(name); if (!id || isCareer(id)) return '';
+    if (!traitDefs(g, w).some(t => t.id === id)) own(g).push({ id, name: name.trim().slice(0, 40), kind, ...(kind === 'state' ? { days: 5 } : {}) });
+    return id;
+}
+
+/* ---------- who has what ---------- */
+
+const rec = (g: Save): Record<string, HasTrait[]> => (((g as any).traitsOf ??= {}) as Record<string, HasTrait[]>);
+const changed = (who: string) => { if (who !== PLAYER) delete (state.sprites as any)[who]; };
+// The traits kept in the save for someone, without the ones that ran out.
+export function keptTraits(g: Save, who: string): HasTrait[] {
+    const now = nowAbs(g), all = rec(g)[who] ?? [];
+    const live = all.filter(t => !t.until || t.until > now);
+    if (live.length !== all.length) { rec(g)[who] = live; changed(who); }
+    return live;
+}
+const occupationOf = (g: Save, who: string) => (who === PLAYER ? g.player.job?.id ?? '' : g.cast[who]?.occupation ?? '');
+// Everything someone is right now: what the save keeps, and their job.
+export function activeTraits(g: Save, who: string): string[] {
+    const out = keptTraits(g, who).map(t => t.id);
+    const job = occupationOf(g, who); if (job) out.push(careerTrait(job));
+    return [...new Set(out)];
+}
+export const hasTrait = (g: Save, who: string, id: string) => activeTraits(g, who).includes(id);
+// Gives someone a trait. A state gets an end date (`days`, or the trait's own). Having it already renews a state.
+export function addTrait(g: Save, w: WorldDef | null | undefined, who: string, id: string, o: { source?: HasTrait['source']; days?: number; note?: string } = {}): boolean {
+    if (!id || isCareer(id)) return false;
+    const d = traitDef(g, w, id), now = nowAbs(g);
+    const days = o.days ?? (d.kind === 'state' ? d.days ?? 5 : 0);
+    const list = (rec(g)[who] ??= []), cur = list.find(t => t.id === id);
+    const until = days > 0 ? now + days * 1440 : undefined;
+    if (cur) { if (until) cur.until = Math.max(cur.until ?? 0, until); if (o.note) cur.note = o.note; return false; }
+    list.push({ id, since: now, ...(until ? { until } : {}), source: o.source ?? 'hand', ...(o.note ? { note: o.note.slice(0, 80) } : {}) });
+    changed(who); return true;
+}
+export function removeTrait(g: Save, who: string, id: string): boolean {
+    const list = rec(g)[who] ?? [], next = list.filter(t => t.id !== id);
+    if (next.length === list.length) return false;
+    rec(g)[who] = next; delete prog(g)[who]?.[id]; changed(who); return true;
+}
+
+/* ---------- doing things together ---------- */
+
+export const NEED = 5, FADE_DAYS = 14;
+const prog = (g: Save): Record<string, Record<string, { n: number; last: number }>> => (((g as any).traitProg ??= {}) as any);
+export const progressOf = (g: Save, who: string, id: string) => prog(g)[who]?.[id]?.n ?? 0;
+const wordIn = (label: string, word: string) => new RegExp(`(^|[^a-z])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(label);
+// The traits a thing to do leads to, by its name.
+export const traitsFor = (defs: PersonTrait[], label: string) => defs.filter(t => t.kind === 'lasting' && (t.grow ?? []).some(x => wordIn(label, x))).map(t => t.id);
+// You did something with these people there: each time counts toward the trait it leads to, once a day per trait.
+// Returns what to tell the player ("Mia is becoming a party animal").
+export function togetherDid(g: Save, w: WorldDef | null | undefined, label: string, withWho: Resident[]): string[] {
+    const defs = traitDefs(g, w), ids = traitsFor(defs, label), out: string[] = [];
+    for (const id of ids) for (const r of withWho) {
+        const p = ((prog(g)[r.avatar] ??= {})[id] ??= { n: 0, last: -1 });
+        if (p.last === g.day) continue;
+        p.last = g.day;
+        const d = defs.find(t => t.id === id)!, need = d.need ?? NEED;
+        if (hasTrait(g, r.avatar, id)) { p.n = Math.min(need, p.n + 1); continue; }
+        p.n++;
+        if (p.n >= need) { addTrait(g, w, r.avatar, id, { source: 'together' }); out.push(`${r.name} has become: ${d.name.toLowerCase()} (from all the times with you).`); }
+        else if (p.n === Math.ceil(need / 2)) out.push(`${r.name} is getting a taste for it (${p.n}/${need} toward ${d.name.toLowerCase()}).`);
+    }
+    return out;
+}
+// Once a day: what you stopped doing together fades, and a trait that came from it goes when it has faded out.
+export function fadeTraits(g: Save, w: WorldDef | null | undefined): string[] {
+    const t = ((g as any).tick ??= {}) as Record<string, number>;
+    if (t.traitFade === g.day) return []; t.traitFade = g.day;
+    const out: string[] = [];
+    for (const [who, byId] of Object.entries(prog(g))) for (const [id, p] of Object.entries(byId)) {
+        if (g.day - p.last < FADE_DAYS || p.n <= 0) continue;
+        p.n--; p.last = g.day - FADE_DAYS + 3;   // then one step every three days
+        if (p.n === 0 && keptTraits(g, who).some(x => x.id === id && x.source === 'together')) {
+            removeTrait(g, who, id);
+            out.push(`${g.cast[who]?.name ?? 'Someone'} is no longer ${traitDef(g, w, id).name.toLowerCase()}.`);
+        }
+    }
+    return out;
+}
+
+/* ---------- for the AI ---------- */
+
+const left = (g: Save, t: HasTrait) => { if (!t.until) return ''; const d = Math.ceil((t.until - nowAbs(g)) / 1440); return d <= 1 ? 'until tomorrow' : `${d} more days`; };
+export function traitWords(g: Save, w: WorldDef | null | undefined, who: string): string {
+    return keptTraits(g, who).map(t => {
+        const d = traitDef(g, w, t.id), extra = [t.note, left(g, t)].filter(Boolean).join(', ');
+        return `${d.name.toLowerCase()}${d.desc ? ` (${d.desc}${extra ? `; ${extra}` : ''})` : extra ? ` (${extra})` : ''}`;
+    }).join('; ');
+}
+export function traitLines(g: Save, w: WorldDef | null | undefined, present: Resident[], me = '{{user}}'): string[] {
+    const parts = present.map(r => { const t = traitWords(g, w, r.avatar); return t ? `${r.name} lately: ${t}.` : ''; }).filter(Boolean);
+    const mine = traitWords(g, w, PLAYER); if (mine) parts.push(`${me} lately: ${mine}.`);
+    return parts;
+}
+
+/* ---------- picture sets ---------- */
+
+export interface TraitSet { id: string; traits: string[] }
+export const setId = (traits: string[]) => [...new Set(traits.map(slug).filter(Boolean))].sort().join('.');
+export const setTraits = (id: string) => id.split('.').filter(Boolean);
+// The sets that apply to someone, best first: every trait of the set is theirs; the set covering the most traits
+// wins; ties go by the character's own order, then the world's (`traitPriority`), then states before the rest.
+export function pickSets(sets: TraitSet[], active: string[], own: string[] = [], world: string[] = [], isState: (id: string) => boolean = () => false): TraitSet[] {
+    const has = new Set(active);
+    const rank = (s: TraitSet) => {
+        const at = (list: string[]) => { const i = s.traits.map(t => list.indexOf(t)).filter(i => i >= 0); return i.length ? Math.min(...i) : 1e6; };
+        return [-s.traits.length, at(own), at(world), s.traits.some(isState) ? 0 : 1, s.id] as const;
+    };
+    return sets.filter(s => s.traits.length && s.traits.every(t => has.has(t)))
+        .sort((a, b) => { const x = rank(a), y = rank(b); for (let i = 0; i < 4; i++) if (x[i] !== y[i]) return (x[i] as number) - (y[i] as number); return x[4] < y[4] ? -1 : 1; });
+}
+// With no `outfits.json` to list a character's sets: the ones worth looking for (each trait alone, and all together).
+export function guessSets(active: string[]): TraitSet[] {
+    const out = active.map(t => ({ id: setId([t]), traits: [t] }));
+    if (active.length > 1) out.push({ id: setId(active), traits: [...active] });
+    return out;
+}
+export const setFolder = (set: string, folder: string) => `${set}--${folder}`;

@@ -1,6 +1,8 @@
 // The world map: full screen, zoom and drag, a pin for every place. Hovering a pin opens a small card next to it
 // (what the place is, who is there; at your own place, what you can do). Clicking a pin goes there.
 import { lex, appRef } from '../core/lexicon.js';
+import { isRoom, buildingOf, enterRoom, canEnter, settleRoom } from '../sim/interiors.js';
+import { hereWith } from '../sim/interiors.js';
 import { safeUrl, setHtml } from '../core/safe.js';
 import { showTransition } from './lifeui.js';
 import { lockedOut } from '../sim/bills.js';
@@ -8,7 +10,7 @@ import { afterAction, doorAnswer, sleepMood } from '../sim/life.js';
 import { hobbyNeed, practice } from '../sim/hobbies.js';
 import { afterEvent } from '../sim/cityevents.js';
 
-import { state, notify, esc, game, toast, saveGame, ROOT_ID, nowAbs, uiZoom, UI } from '../core/store.js';
+import { state, notify, esc, game, toast, saveGame, ROOT_ID, nowAbs, uiZoom } from '../core/store.js';
 import { runPlans } from './plans.js';
 import { maybeBump } from './bump.js';
 import { rollAction, gradeName } from '../sim/dice.js';
@@ -24,6 +26,8 @@ import { pins, placeOf, travelMinutes, playerHomeId, isOuting, outingName } from
 import { planOn, floorsOn, planTarget, unplaced, floorOf } from '../sim/plan.js';
 import { presentAt, whereNow } from '../sim/people.js';
 import { cameAndWent } from '../sim/intent.js';
+import { togetherDid } from '../sim/persontraits.js';
+import { narrate, arriveLevel, actionVoice } from './narrator.js';
 import { writeDiary, diaryOn, markDayStart } from '../sim/diary.js';
 import { openWork, diaryWaiting, diaryReady } from './relui.js';
 import { askAboutPlans } from './appts.js';
@@ -366,7 +370,10 @@ export const mapInput = {
 export const JOURNEY = { to: '', minutes: 0, camps: 0 };
 export async function travelTo(loc: string, road?: 'camp' | 'push') {
     const { g, w } = ctxW();
-    if (loc === g.player.loc) return;
+    // a room of a building: you go to the building, and walk in to that room
+    const room = isRoom(w, loc) ? loc : '';
+    if (room) loc = buildingOf(w, loc);
+    if (loc === g.player.loc) { if (room && !enterRoom(g, w, room)) { saveGame(); await syncScene(); notify(); } return; }
     if (state.generating) { toast('Wait until they finish speaking.', 'info'); return; }   // nobody walks out mid-sentence
     const mins = travelMinutes(g, w, g.player.loc, loc);
     const trip = journeyOf(g, w, g.player.loc, loc, mins);
@@ -381,6 +388,8 @@ export async function travelTo(loc: string, road?: 'camp' | 'push') {
     delete (g as any).traveling;
     JOURNEY.to = '';
     if (g.player.loc === from) g.player.loc = loc;   // unless something on the way moved you (passing out…)
+    delete (g.player as any).room; if (g.player.loc === loc && room && canEnter(g, w, room).ok) (g.player as any).room = room;
+    settleRoom(g, w);   // (a building with rooms: you come in at its entry)
     viewMap = null;
     msgs.forEach(m => toast(m, 'warn'));
     runPlans();
@@ -416,9 +425,13 @@ async function goTo(loc: string) {
     const door = doorAnswer(g, w, loc);
     if (!door.ok) { toast(door.text, 'info'); notify(); return; }
     if (door.text) toast(door.text, 'info');
-    if (loc !== g.player.loc) await travelTo(loc);
+    const from = g.player.loc;
+    if (loc !== from) await travelTo(loc);
     state.view = 'scene';
     notify();
+    // the narrator opens the scene: the place at this hour and who is here. Not from room to room in a Home (one
+    // long scene with the same people), and not when the trip did not end where it was going.
+    if (loc !== from && g.player.loc === loc && !isScenario(w) && !JOURNEY.to) await narrate(arriveLevel(), { kind: 'arrive' });
 }
 
 // `wakeAt`: wake up at that moment (absolute minutes) instead of in the morning ("Sleep until the party"): a nap
@@ -536,7 +549,7 @@ export async function doAction(id: string, say = false): Promise<string | false>
         if (!canAfford(g, a)) { toast('Not enough money.', 'info'); return false; }
         const tired = tooTired(g, w, Object.fromEntries(Object.entries(a.effects ?? {}).map(([k, v]) => [k, -v])), a.label.toLowerCase()); if (tired) { toast(tired, 'warn'); return false; }
         if (isDoing()) return false;
-        const before = presentAt(g, w, g.player.loc);   // who is here now: the action takes time, and people come and go meanwhile
+        const before = hereWith(g, w);   // who is here now: the action takes time, and people come and go meanwhile
         const where = g.player.loc;
         actionSound(a.effects, a.id);
         await doing(a.label, a.icon ?? '⏳', a.minutes);   // a moment on screen while the time passes
@@ -546,6 +559,8 @@ export async function doAction(id: string, say = false): Promise<string | false>
         afterAction(g, w, a, roll ? roll.grade.includes('success') : null).forEach(m => toast(m, 'success'));
         afterEvent(g, w, a);
         practice(g, w, a, roll ? roll.grade.includes('success') : null, roll?.grade === 'critical-success').forEach(m => toast(m, 'success'));
+        // done with the people here, often enough, it rubs off on them (sim/persontraits.ts)
+        togetherDid(g, w, a.label, before.filter(r => r.met)).forEach(m => toast(m, 'info'));
         runPlans();
         saveGame();
         await syncScene();
@@ -554,25 +569,35 @@ export async function doAction(id: string, say = false): Promise<string | false>
             toast(`${gradeName(roll.grade)} — ${roll.text}`, roll.grade.includes('success') ? 'success' : 'warn');
             // the AI only tells the story of the result the engine decided
             hint = `[Just now {{user}} tried to ${a.label.toLowerCase()}: ${gradeName(roll.grade).toLowerCase()}. ${roll.text} Narrate it in that light if it comes up.]`;
-            if (state.view === 'scene') setPrompt('mundi_roll', hint);
-            if (!say) narrateNow(a.label);
         } else {
             toast(`${a.name}: done.`, 'success');
             hint = `[Just now {{user}} chose to ${a.label.toLowerCase()}. Narrate how it goes, in the scene.]`;
-            if (state.view === 'scene') setPrompt('mundi_roll', hint);
-            if (!say) narrateNow(a.label);
         }
         // who came in or left while it lasted: the AI is told, so the narration has them walk in (or be gone)
-        const moved = g.player.loc === where ? cameAndWent(before.map(r => r.name), presentAt(g, w, g.player.loc).map(r => r.name)) : '';
-        if (moved && hint) { hint = `${hint.slice(0, -1)} ${moved}]`; if (state.view === 'scene') setPrompt('mundi_roll', hint); }
+        const same = g.player.loc === where;
+        const after = hereWith(g, w).map(r => r.name), was = before.map(r => r.name);
+        const moved = same ? cameAndWent(was, after) : '';
+        if (moved) hint = `${hint.slice(0, -1)} ${moved}]`;
+        const voice = actionVoice();
+        if (!say && voice !== 'reply' && voice !== 'off' && state.view === 'scene' && !state.generating) {
+            // the narrator tells it (not whoever happens to be in the room), with who came and went meanwhile
+            const told = await narrate(voice, { kind: 'action', action: a.label, minutes: a.minutes, result: roll ? `${gradeName(roll.grade)}. ${roll.text}` : '',
+                came: same ? after.filter(n => !was.includes(n)) : [], left: same ? was.filter(n => !after.includes(n)) : [] });
+            // already told in the chat: the next reply is not asked to narrate it again
+            if (told) hint = '';
+            if (state.view === 'scene') setPrompt('mundi_roll', hint);
+        } else {
+            if (state.view === 'scene') setPrompt('mundi_roll', hint);
+            if (!say && voice === 'reply') narrateNow(a.label);
+        }
         maybeBump(g, w);
         notify();
         return hint;
 }
 
-// "The AI narrates what you do right away" (Settings → Game, on by default): the action goes into the chat as what you
-// do, so the AI answers with how it goes (the hint above tells it the result).
+// "A character answers" (AI context → AI calls → When you do something): the action goes into the chat as what you
+// do, so whoever speaks next tells how it goes (the hint above tells them the result).
 function narrateNow(label: string) {
-    if (state.view !== 'scene' || state.generating || UI().narrateActions === false) return;
+    if (state.view !== 'scene' || state.generating) return;
     sendCanned(`*${label.charAt(0).toLowerCase()}${label.slice(1)}*`);
 }

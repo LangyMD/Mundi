@@ -1,5 +1,6 @@
 // Combat on screen: the fight screen (monster-battle style) and the Party app (formation, companions, sellswords).
 import { lex } from '../core/lexicon.js';
+import { hereWith } from '../sim/interiors.js';
 import { safeUrl } from '../core/safe.js';
 import { esc, game, notify, saveGame, toast } from '../core/store.js';
 import { getWorld, worldFile } from '../core/world.js';
@@ -9,7 +10,6 @@ import { thumb, setPrompt, personaThumb } from '../st/bridge.js';
 import { placeOf } from '../sim/places.js';
 import { pictureAt } from '../sim/daynight.js';
 import { money } from '../sim/needs.js';
-import { presentAt } from '../sim/people.js';
 import { sheetOf, isRpg } from '../sim/rpg.js';
 import { combatOf, current, yourTurn, targetsFor, standing, chooseMode, act, combatSpells, closeCombat, } from '../sim/combat.js';
 import { partyOf, friends, mercs, memberName, memberKey, canJoin, join, leave, setRow, forHire, hire, dismissMerc, hiringHere, MAX_FRIENDS, MAX_MERCS, } from '../sim/party.js';
@@ -200,7 +200,7 @@ export function partyApp(g, w, head) {
         <span><b data-notr>${esc(memberName(g, m))}</b><small>${esc(cls(m.cls))}${m.merc ? ` · level ${m.merc.level} · ${esc(money(w, m.merc.wage))}/day` : ''}${m.hp !== undefined ? ' · wounded' : ''}</small>${row(memberKey(m), m.row)}</span>
         <button class="mu-ghost" data-act="${m.merc ? 'party-dismiss' : 'party-leave'}" data-id="${esc(memberKey(m))}">${m.merc ? 'Dismiss' : 'Part ways'}</button></div>`).join('')
         : '<p class="mu-muted">You travel alone. People who trust you (bond 40+) can join you; sellswords can be hired at a tavern or an inn.</p>';
-    const here = presentAt(g, w, g.player.loc).filter(r => r.met && !list.some(m => m.avatar === r.avatar));
+    const here = hereWith(g, w).filter(r => r.met && !list.some(m => m.avatar === r.avatar));
     const invite = here.length ? `<section><h4>Ask to join (here)</h4>${here.map(r => {
         const why = canJoin(g, w, r.avatar);
         return `<div class="mu-ph-job"><img src="${esc(thumb(r.avatar))}" alt=""><span><b data-notr>${esc(r.name)}</b><small>${why ? esc(why) : 'Ready to follow you'}</small></span>

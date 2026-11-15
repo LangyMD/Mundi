@@ -2,8 +2,8 @@
 // name (a subfolder of their Expressions folder) wears it while in the room with you; back in a room without one,
 // the outfit the dress code put on comes off again. The AI is told what people wear there.
 import { cfg, state, type Save } from '../core/store.js';
+import { hereWith } from './interiors.js';
 import { isScenario, type WorldDef } from '../core/world.js';
-import { presentAt } from './people.js';
 import { outfitOf, wearOutfit } from '../st/bridge.js';
 
 export const dressCodes = (g: Save): Record<string, string> => ((cfg(g) as any).dress ??= {});
@@ -17,7 +17,7 @@ export function applyDress(g: Save, w: WorldDef, has: (avatar: string) => string
     if (!isScenario(w)) return false;
     const code = dressAt(g, g.player.loc).toLowerCase();
     const worn = dressed(g); let changed = false;
-    for (const r of presentAt(g, w, g.player.loc)) {
+    for (const r of hereWith(g, w)) {
         const list = has(r.avatar); if (!list) continue;
         const match = code ? list.find(o => o.toLowerCase() === code) : undefined;
         const cur = outfitOf(r.avatar);

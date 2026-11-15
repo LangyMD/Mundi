@@ -13,8 +13,11 @@ import { romanceButtons } from './relui.js';
 import { outfitOf, wearOutfit, charOf } from '../st/bridge.js';
 import { outfitsOf, outfitLabel } from './outfits.js';
 import { guestButtons } from './guestsui.js';
+import { CATEGORIES, LAYERS, LAYER_NAME, categoryName, lookOf, looks, setLook, unlockLook, type Layer } from '../sim/looks.js';
+import { saveGame } from '../core/store.js';
+import { refreshPrompt } from '../sim/prompt.js';
 
-export const RAD = { who: '' };
+export const RAD = { who: '', looks: false };
 
 const btn = (act: string, who: string, ic: string, label: string, extra = '') => `<button data-act="${esc(act)}" data-who="${esc(who)}" ${extra}>${icon(ic)}<span>${esc(label)}</span></button>`;
 // The buttons of an HTML snippet (romance, stay), so they sit on the arc like the others.
@@ -33,11 +36,22 @@ function actions(g: Save, w: WorldDef, r: Resident): string[] {
     out.push(btn('pc-open', r.avatar, 'user', 'Their card'));
     return out;
 }
+// What they wear (sim/looks.ts): the kinds of outfit on the left, the layers on the right. Set by hand, it stays
+// until "As the moment asks" gives it back to the game.
+const CAT_ICON: Record<string, string> = { everyday: '👕', formal: '👔', athletic: '🎽', sleepwear: '🌙', party: '🎉', swimwear: '🩱', 'hot-weather': '☀️', 'cold-weather': '🧣', career: '💼' };
+const LAYER_ICON: Record<Layer, string> = { outer: '🧥', normal: '👚', underwear: '🩲', naked: '🚿' };
+function lookButtons(g: Save, avatar: string): [string[], string[]] {
+    const cur = lookOf(g, avatar), locked = !!looks(g)[avatar]?.lock;
+    const b = (kind: string, v: string, ic: string, label: string, on: boolean) => `<button data-act="spr-look" data-who="${esc(avatar)}" data-k="${kind}" data-v="${esc(v)}" class="${on ? 'is-on' : ''}">${ic}<span>${esc(label)}</span></button>`;
+    return [CATEGORIES.map(c => b('cat', c, CAT_ICON[c] ?? '👗', categoryName(c), cur.category === c)),
+        [b('auto', '', '✨', 'As the moment asks', !locked), ...LAYERS.map(l => b('layer', l, LAYER_ICON[l], LAYER_NAME[l], cur.layer === l)), `<button data-act="spr-looks" data-who="${esc(avatar)}">${icon('back')}<span>Back</span></button>`]];
+}
 function outfits(avatar: string): string[] {
-    const list = outfitsOf(avatar); if (!list?.length) return [];
+    const clothes = `<button data-act="spr-looks" data-who="${esc(avatar)}">👗<span>Clothes</span></button>`;
+    const list = outfitsOf(avatar); if (!list?.length) return [clothes];
     const cur = outfitOf(avatar);
     return [`<button data-act="spr-outfit" data-who="${esc(avatar)}" data-o="" class="${cur ? '' : 'is-on'}">👕<span>Default</span></button>`,
-        ...list.map(o => `<button data-act="spr-outfit" data-who="${esc(avatar)}" data-o="${esc(o)}" class="${cur.toLowerCase() === o.toLowerCase() ? 'is-on' : ''}">👗<span>${esc(outfitLabel(o))}</span></button>`)];
+        ...list.map(o => `<button data-act="spr-outfit" data-who="${esc(avatar)}" data-o="${esc(o)}" class="${cur.toLowerCase() === o.toLowerCase() ? 'is-on' : ''}">👗<span>${esc(outfitLabel(o))}</span></button>`), clothes];
 }
 // Puts the buttons on an arc: angle from top to bottom on each side.
 const arc = (items: string[], side: 'l' | 'r') => {
@@ -49,7 +63,8 @@ const arc = (items: string[], side: 'l' | 'r') => {
 export function radialHtml(avatar: string, r: Resident | null): string {
     if (RAD.who !== avatar) return '';
     const g = game(); const w = g && getWorld(g.world); if (!g || !w) return '';
-    const right = r ? actions(g, w, r) : [], left = outfits(avatar);
+    const [cats, layers] = RAD.looks && r ? lookButtons(g, avatar) : [[], []];
+    const right = RAD.looks && r ? layers : r ? actions(g, w, r) : [], left = RAD.looks && r ? cats : r ? outfits(avatar) : outfits(avatar).slice(0, -1);
     if (!right.length && !left.length) return '';
     return `<div class="mu-radial" role="menu" aria-label="${esc(r?.name ?? String(charOf(avatar)?.name ?? ''))}">
         <div class="mu-rad-side is-left">${arc(left, 'l')}</div><div class="mu-rad-side is-right">${arc(right, 'r')}</div></div>`;
@@ -59,9 +74,22 @@ Object.assign(ACT, {
     'spr-menu': (el, e) => {
         if ((e?.target as HTMLElement)?.closest?.('.mu-radial')) return;
         const who = el.dataset.who ?? '';
-        RAD.who = RAD.who === who ? '' : who; notify();
+        RAD.who = RAD.who === who ? '' : who; RAD.looks = false; notify();
     },
-    'spr-close': () => { if (RAD.who) { RAD.who = ''; notify(); } },
+    'spr-looks': (_el, e) => { e?.stopPropagation?.(); RAD.looks = !RAD.looks; notify(); },
+    'spr-look': (el, e) => {
+        e?.stopPropagation?.();
+        const g = game(); if (!g) return;
+        const who = el.dataset.who!, cur = lookOf(g, who), name = String(charOf(who)?.name ?? '');
+        if (el.dataset.k === 'auto') { unlockLook(g, who); toast(`${name} dresses as the moment asks again.`, 'success'); void import('../sim/game.js').then(m => m.syncScene()).then(notify); }
+        else {
+            const category = el.dataset.k === 'cat' ? el.dataset.v! : cur.category, layer = el.dataset.k === 'layer' ? el.dataset.v as Layer : cur.layer === 'outer' && el.dataset.k === 'cat' ? 'normal' : cur.layer;
+            setLook(g, who, category, layer, 'you chose it', true);
+            refreshPrompt();
+        }
+        saveGame(); notify();
+    },
+    'spr-close': () => { if (RAD.who) { RAD.who = ''; RAD.looks = false; notify(); } },
     'spr-outfit': async (el) => {
         const who = el.dataset.who!; const o = el.dataset.o ?? '';
         wearOutfit(who, o);
@@ -74,6 +102,8 @@ Object.assign(ACT, {
 document.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     if (!RAD.who) return;
-    if (t.closest?.('[data-rad]')) { setTimeout(() => { if (RAD.who) { RAD.who = ''; notify(); } }, 0); return; }
-    if (!t.closest?.('.mu-sprite')) { RAD.who = ''; notify(); }
+    const b = t.closest?.('[data-rad]') as HTMLElement | null;
+    if (b && /^spr-looks?$/.test(b.dataset.act ?? '')) return;   // the clothes stay open while you choose
+    if (b) { setTimeout(() => { if (RAD.who) { RAD.who = ''; RAD.looks = false; notify(); } }, 0); return; }
+    if (!t.closest?.('.mu-sprite')) { RAD.who = ''; RAD.looks = false; notify(); }
 }, true);
