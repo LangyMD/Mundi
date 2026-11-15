@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased (this fork)
+
+- **Free text in the message box:** Settings → Game → Message box. Keep the Say / Do / Story / See buttons, add a
+  Free mode beside them, or hide the buttons and write freely. Free text is sent exactly as written, so one line can
+  mix what you say and do. In free text, a line that starts with `>` steers the story and one that starts with `?`
+  looks at something.
+- **Writing style:** This world → AI context → Writing style. Off by default (the preset decides). On: point of view,
+  length, pace, tone, style tags (and your own), how people speak, the narrator's presence and notes become one short
+  instruction sent with every reply, late in the prompt. Or send one text of your own, which the AI can write from
+  your choices. Styles are kept per game, and can be saved to use in other games.
+- **A question waiting for its answer** (asking someone out, proposing) no longer gives up early when another
+  extension makes background AI calls: only real replies in the chat count as turns.
+
 ## 0.2.1 · 2026-10-28
 
 Fixes and improvements for Home mode.

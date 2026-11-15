@@ -8,6 +8,7 @@ import { ctx } from '../st/bridge.js';
 import { blocksOf, promptCfg, sceneBlocks, sceneText, estTokens, refreshPrompt, DEFAULT_RULES } from '../sim/prompt.js';
 import { icon } from './icons.js';
 import { ACT, INPUT } from './reg.js';
+import { styleHtml } from './styleui.js';
 const A = { text: '', count: -1, preview: false, edit: '' };
 function count(text) {
     if (text === A.text)
@@ -40,7 +41,7 @@ export function tabAiContext() {
     const share = max && !unlocked ? Math.round((n / max) * 100) : 0;
     const steps = [0, 200, 300, 400, 500, 600, 800, 1000, 1200, 1500, 2000];
     const bi = Math.max(0, steps.indexOf(pc.budget));
-    return `${aiCallsHtml()}<section class="mu-wc-sec mu-aic">
+    return `${aiCallsHtml()}${styleHtml()}<section class="mu-wc-sec mu-aic">
             <h4>What Mundi sends to the AI</h4>
             <p class="mu-muted">Sent with every reply, on top of your preset, the character cards and the chat. Only what is about this place and the people here.</p>
             <div class="mu-aic-meter"><b>${A.count >= 0 ? '' : '≈ '}${n.toLocaleString('en-US')} tokens</b>

@@ -60,13 +60,13 @@ export function romanceButtons(avatar: string): string {
 
 /* ---------- asking: the scene plays it, then the engine reads the answer ---------- */
 
-const ASK = { avatar: '', name: '', kind: 'date' as AskKind, from: 0, waits: 0, round: 0, start: 0 };
+const ASK = { avatar: '', name: '', kind: 'date' as AskKind, from: 0, waits: 0, round: 0, start: 0, seen: 0 };
 const END = { avatar: '' };
 const askWhat = (k: AskKind) => k === 'date' ? 'to be a couple' : k === 'baby' ? 'about trying for a baby together' : k === 'propose' ? 'to marry them' : 'to set the date and get married';
 
 function startAsk(g: Save, avatar: string, kind: AskKind, from: number) {
     const r = g.cast[avatar];
-    Object.assign(ASK, { avatar, name: r.name, kind, from, waits: 0, round: 0, start: from });
+    Object.assign(ASK, { avatar, name: r.name, kind, from, waits: 0, round: 0, start: from, seen: from });
     // the question itself is a fact (the diary and the Journal know it was asked, whatever the answer)
     note(g, kind === 'date' ? '{u} asked {0} to be a couple.' : kind === 'propose' ? '{u} proposed to {0}.' : kind === 'marry' ? '{u} asked {0} to set the date and get married.' : '{u} asked {0} about trying for a baby.', [r.name], [avatar], g.player.loc, kind === 'baby' ? 'family' : 'love');
     saveGame();
@@ -100,6 +100,8 @@ export function detectAsk(text: string) {
     notify();
 }
 
+// Did the chat get a new line since the last time the question was checked? (only then a turn went by)
+export const askWaited = (lines: number, seen: number) => lines > seen;
 // Called when a reply finishes (index.ts): if someone was just asked, find their answer and let the engine apply it.
 export async function checkAsk() {
     const g = game();
@@ -111,7 +113,14 @@ export async function checkAsk() {
     const named = (m: any) => { const n = String(m.name ?? '').toLowerCase().trim(); return n === low || n.split(/\s+/)[0] === first; };
     const speakers = new Set(others.map((m: any) => String(m.name ?? '')));
     const reply = [...others].reverse().find(named) ?? (speakers.size === 1 ? others.at(-1) : undefined);
-    if (!reply) { if (++ASK.waits >= 3) { setPrompt('mundi_ask', ''); ASK.avatar = ''; notify(); } return; }
+    if (!reply) {
+        // a wait is a reply by someone else in the chat. A generation that added no line (another extension's
+        // background call, a stopped or empty reply) is not one, so it never uses up the question's three turns.
+        if (!askWaited(list.length, ASK.seen)) return;
+        ASK.seen = list.length;
+        if (++ASK.waits >= 3) { setPrompt('mundi_ask', ''); ASK.avatar = ''; notify(); }
+        return;
+    }
     const { avatar, name, kind } = ASK;
     // everything since the question (their words, and yours: a story direction like "she says yes" counts too)
     const clean = (t: unknown) => String(t ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -125,7 +134,7 @@ export async function checkAsk() {
     } catch { /* not sure: treat it as "maybe" */ }
     if (answer === 'maybe' && ASK.round < 2) {
         // not clear yet: the question stays open for a couple more replies, and they are nudged to answer
-        ASK.round++; ASK.from = list.length; ASK.waits = 0;
+        ASK.round++; ASK.from = list.length; ASK.waits = 0; ASK.seen = list.length;
         setPrompt('mundi_ask', `[${name} has not clearly answered {{user}}'s question yet (${askWhat(kind)}). In this reply ${name} gives a clear answer, in their own way: yes, no, or that they need time to think.]`, 0);
         toast(`Waiting for ${name}'s answer…`, 'info'); notify(); return;
     }

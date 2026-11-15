@@ -8,7 +8,8 @@ import { feelingLine, physiqueLine, aspirationOf } from './life.js';
 import { game, settings } from '../core/store.js';
 import { getWorld, homeNeedsOn } from '../core/world.js';
 import { aiLangNote } from '../core/i18n.js';
-import { setPrompt, nameOf } from '../st/bridge.js';
+import { setPrompt, setPromptInChat, nameOf } from '../st/bridge.js';
+import { styleOf, styleText } from './style.js';
 import { weekday, hm, period, seasonOf } from './time.js';
 import { placeOf } from './places.js';
 import { presentAt, whereNow, OUT } from './people.js';
@@ -183,8 +184,16 @@ export function sceneText(): string {
     return [basics, ...mid, rules].filter(Boolean).join('\n');
 }
 
-export function refreshPrompt() { setPrompt(PROMPT_KEY, sceneText()); }
-export const clearPrompt = () => setPrompt(PROMPT_KEY, '');
+// The writing style (sim/style.ts) goes apart from the scene block: late in the chat, where it holds best, or right
+// after the scene block. Only one of the two places ever has it.
+export const STYLE_KEY = 'mundi_style', STYLE_TOP_KEY = 'mundi_style_top';
+export function refreshStyle() {
+    const s = styleOf(game()); const text = styleText(s);
+    setPromptInChat(STYLE_KEY, s.where === 'late' ? text : '', 1);
+    setPrompt(STYLE_TOP_KEY, s.where === 'top' ? text : '');
+}
+export function refreshPrompt() { setPrompt(PROMPT_KEY, sceneText()); refreshStyle(); }
+export const clearPrompt = () => { setPrompt(PROMPT_KEY, ''); setPromptInChat(STYLE_KEY, '', 1); setPrompt(STYLE_TOP_KEY, ''); };
 export const speakerName = (avatar: string) => nameOf(avatar);
 
 // The scene's focus (a short directive so the story does not wander): the plan or company that brought you here.

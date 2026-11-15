@@ -78,8 +78,11 @@ function addSettingsBlock() {
 function follow() {
     const redraw = () => { if (state.open)
         notify(); };
-    on('GENERATION_STARTED', (_type, _opts, dryRun) => { if (dryRun)
-        return; state.generating = true; redraw(); });
+    // a "quiet" generation is a background call (another extension's summary or image prompt, a slash command): it is
+    // not a turn of the scene, so it must not count as someone answering (or failing to)
+    let quietRun = false;
+    on('GENERATION_STARTED', (type, _opts, dryRun) => { if (dryRun)
+        return; quietRun = type === 'quiet'; state.generating = true; redraw(); });
     const done = () => {
         state.generating = false;
         if (state.impersonating) { // the AI wrote the player's line into SillyTavern's box: bring it to Mundi's composer
@@ -92,7 +95,10 @@ function follow() {
         }
         redraw();
     };
-    on('GENERATION_ENDED', () => { emptyReply(); done(); void import('./ui/relui.js').then(m => m.checkAsk()); void import('./ui/events.js').then(m => m.checkEventEnd()); });
+    on('GENERATION_ENDED', () => { const wasQuiet = quietRun; quietRun = false; if (wasQuiet) {
+        done();
+        return;
+    } emptyReply(); done(); void import('./ui/relui.js').then(m => m.checkAsk()); void import('./ui/events.js').then(m => m.checkEventEnd()); });
     on('GENERATION_STOPPED', done);
     on('GROUP_WRAPPER_FINISHED', done);
     on('STREAM_TOKEN_RECEIVED', () => { if (state.open && state.view === 'scene')
