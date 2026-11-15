@@ -86,6 +86,8 @@ act('ie-clear'); act('ie-clear');
 ok(!cafe().interior && rooms().length === 0, 'all the rooms removed: one scene again');
 
 /* ---------- a plan for homes ---------- */
+// (the world's own plans aside, so the checks below see only the one made here)
+delete w.homes.plans; for (const z of w.homes.zones) delete z.interiors; for (const k of Object.values(w.homes.kinds)) delete k.interior;
 act('ie-plan-add');
 const pid = Object.keys(w.homes.plans)[0]; const plan = () => w.homes.plans[pid];
 ok(E.IE.target === `plan:${pid}` && plan().floors.length === 1 && plan().templates.length === 0, 'a new plan, with a floor');
