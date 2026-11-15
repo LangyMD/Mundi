@@ -100,7 +100,7 @@ function follow() {
         return;
     } emptyReply(); done(); void import('./ui/relui.js').then(m => m.checkAsk()); void import('./ui/events.js').then(m => m.checkEventEnd()); });
     on('GENERATION_STOPPED', done);
-    on('GROUP_WRAPPER_FINISHED', () => { done(); void import('./st/bridge.js').then(b => b.setForReply(b.WILL_KEY, '')); }); // (the word for that reply only is over)
+    on('GROUP_WRAPPER_FINISHED', () => { done(); void import('./st/bridge.js').then(b => b.setForReply(b.WILL_KEY, '')); void import('./ui/watchui.js').then(m => m.watchClothes()); }); // (the word for that reply only is over)
     on('STREAM_TOKEN_RECEIVED', () => { if (state.open && state.view === 'scene')
         patchLastLine(); });
     on('MESSAGE_SENT', (id) => { const m = globalThis.SillyTavern?.getContext?.().chat?.[id]; if (m?.is_user)

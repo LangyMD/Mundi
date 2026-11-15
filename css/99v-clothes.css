@@ -1,0 +1,5 @@
+/* Your clothes (ui/myclothes.ts): a small dialog from the game menu */
+#mundi-root .mu-myclothes { width: min(520px, calc(100% - 32px)); grid-template-rows: none; overflow: auto; }
+#mundi-root .mu-myclothes p { margin: 0; }
+#mundi-root .mu-myclothes .mu-chips { margin-top: 4px; }
+#mundi-root .mu-myclothes .mu-dlg-btns { justify-content: space-between; }

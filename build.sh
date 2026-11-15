@@ -22,6 +22,8 @@ node tests/narrator.test.mjs > /tmp/mundi-narrator-test.log 2>&1 || { grep -v "^
 echo "narrator: $(tail -1 /tmp/mundi-narrator-test.log)"
 node tests/looks.test.mjs > /tmp/mundi-looks-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-looks-test.log; echo "LOOKS TESTS FAILED"; exit 1; }
 echo "looks: $(tail -1 /tmp/mundi-looks-test.log)"
+node tests/watch.test.mjs > /tmp/mundi-watch-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-watch-test.log; echo "WATCH TESTS FAILED"; exit 1; }
+echo "watch: $(tail -1 /tmp/mundi-watch-test.log)"
 node tests/photos.test.mjs > /tmp/mundi-photos-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-photos-test.log; echo "PHOTO TESTS FAILED"; exit 1; }
 echo "photos: $(tail -1 /tmp/mundi-photos-test.log)"
 node tests/traits.test.mjs > /tmp/mundi-traits-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-traits-test.log; echo "TRAIT TESTS FAILED"; exit 1; }

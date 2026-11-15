@@ -2,6 +2,15 @@
 
 ## Unreleased (this fork)
 
+
+- **Clothes that follow the story (optional AI call):** Settings › AI context › AI calls › "Notice when someone
+  changes clothes in the story". Off by default. "When the lines mention clothes" asks the AI only when the last
+  lines have a clothing word in them (no call otherwise); "After every reply" always asks. The call runs once the
+  characters have answered and only asks who changed into what; the game's record, the pictures and the line for
+  the AI then follow. A change found this way is kept while you stay at that place (half a day at most), then the
+  game dresses the person as the moment asks again.
+- **Your own clothes, by hand:** the game menu has "Your clothes": the kind of outfit, how much of it, and "As the
+  moment asks" to give it back to the game.
 - **Traits for the Social and Intimacy needs:** five more of the traits people gain in a game. Social butterfly
   (comes from coffees and chats together), Loner, Affectionate (comes from hugs, cuddles and kisses with that
   person), Reserved, and Glowing (a day, for both of you, after a welcomed cuddle, kiss or making love). For you,
