@@ -2,6 +2,19 @@
 
 ## Unreleased (this fork)
 
+- **World creator › Rooms:** a new tab to give a place rooms inside, or to make a plan of rooms for homes, without
+  editing the world file. Pick what to edit, add floors (each with an optional picture of the plan), add rooms and
+  drag their boxes into place. A room has a name, a description, tags (the kinds of room things to do can ask
+  for), who may go in, what people wear in it, a picture, and one room is the entry. A plan for homes also has
+  bedrooms (one person's, a couple's, a guest room, the flat of a duplex) and "Homes with these rooms": every home
+  of a kind, or addresses one by one. A kind of home can now name a plan (`homes.kinds.<kind>.interior: "<plan id>"`).
+  Maps & places has "Give it rooms inside" and "What people wear here" on a place; Jobs has "In which room";
+  Things to do has "Only in rooms tagged"; People has "Their bedroom". Rooms no longer show as pins in the map
+  editor, and removing a place removes its rooms.
+- **World creator › Traits people gain:** a new tab for the world's own list of the traits people gain and lose in
+  a game (name, id, what the AI is told, lasting or passing, what brings it), and which win when several picture
+  sets fit. A world without a list keeps the usual one.
+- Exported worlds now carry the pictures of floor plans and rooms.
 - **Fixed: a busy place narrated as empty.** With nobody you know in a place, the narrator (and the scene prompt)
   said nobody was there, even when the place was busy. Now the AI is told that nobody you know is there but
   strangers are around as background: unnamed, and not speaking to you. An empty or closed place is still empty.

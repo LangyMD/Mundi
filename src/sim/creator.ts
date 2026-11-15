@@ -29,6 +29,11 @@ function absolutize(w: WorldDef, src: WorldDef) {
     for (const k of Object.values(w.homes.kinds)) { if (k.image) k.image = abs(k.image); absAll(k.images); }
     for (const p of w.places) { if (p.bg) p.bg = abs(p.bg); absAll(p.bgs); }
     for (const f of w.plan?.floors ?? []) { if (f.image) f.image = abs(f.image); absAll(f.images); }
+    for (const it of interiorsOf(w)) { for (const f of it.floors ?? []) { if (f.image) f.image = abs(f.image); absAll(f.images); } for (const t of it.templates ?? []) { if (t.bg) t.bg = abs(t.bg); absAll(t.bgs); } }
+}
+// Every set of rooms in a world: the buildings', the plans of homes, a kind of home's own.
+function interiorsOf(w: WorldDef): any[] {
+    return [...w.places.map(p => p.interior), ...Object.values(((w.homes as any).plans ?? {}) as Record<string, unknown>), ...Object.values(w.homes.kinds).map(k => (k.interior && typeof k.interior === 'object' ? k.interior : null))].filter(Boolean);
 }
 
 export const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30) || 'world';
@@ -102,7 +107,8 @@ export const imageRatio = (url: string) => new Promise<number>(ok => { const i =
 
 function assetsOf(w: WorldDef): string[] {
     const parts = (o?: Record<string, string>) => Object.values(o ?? {});   // the pictures for each part of the day
-    return [w.cover, ...Object.values(w.music ?? {}), ...w.maps.flatMap(m => [m.image, ...parts(m.images)]), ...Object.values(w.homes.kinds).flatMap(k => [k.image, ...parts(k.images)]), ...w.places.flatMap(p => [p.bg, ...parts(p.bgs)]), ...(w.plan?.floors ?? []).flatMap(f => [f.image, ...parts(f.images)])].filter((x): x is string => !!x);
+    return [w.cover, ...Object.values(w.music ?? {}), ...w.maps.flatMap(m => [m.image, ...parts(m.images)]), ...Object.values(w.homes.kinds).flatMap(k => [k.image, ...parts(k.images)]), ...w.places.flatMap(p => [p.bg, ...parts(p.bgs)]), ...(w.plan?.floors ?? []).flatMap(f => [f.image, ...parts(f.images)]),
+        ...interiorsOf(w).flatMap(it => [...(it.floors ?? []).flatMap((f: any) => [f.image, ...parts(f.images)]), ...(it.templates ?? []).flatMap((t: any) => [t.bg, ...parts(t.bgs)])])].filter((x): x is string => !!x);
 }
 
 /* ---------- export and import ---------- */

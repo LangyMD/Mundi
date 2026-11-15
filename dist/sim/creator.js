@@ -53,6 +53,22 @@ function absolutize(w, src) {
             f.image = abs(f.image);
         absAll(f.images);
     }
+    for (const it of interiorsOf(w)) {
+        for (const f of it.floors ?? []) {
+            if (f.image)
+                f.image = abs(f.image);
+            absAll(f.images);
+        }
+        for (const t of it.templates ?? []) {
+            if (t.bg)
+                t.bg = abs(t.bg);
+            absAll(t.bgs);
+        }
+    }
+}
+// Every set of rooms in a world: the buildings', the plans of homes, a kind of home's own.
+function interiorsOf(w) {
+    return [...w.places.map(p => p.interior), ...Object.values((w.homes.plans ?? {})), ...Object.values(w.homes.kinds).map(k => (k.interior && typeof k.interior === 'object' ? k.interior : null))].filter(Boolean);
 }
 export const slug = (s) => s.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30) || 'world';
 export const newId = (prefix) => `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -138,7 +154,8 @@ export async function uploadWorldPicture(w, file, what) {
 export const imageRatio = (url) => new Promise(ok => { const i = new Image(); i.onload = () => ok(+(i.naturalWidth / i.naturalHeight).toFixed(4) || 1.6); i.onerror = () => ok(1.6); i.src = url; });
 function assetsOf(w) {
     const parts = (o) => Object.values(o ?? {}); // the pictures for each part of the day
-    return [w.cover, ...Object.values(w.music ?? {}), ...w.maps.flatMap(m => [m.image, ...parts(m.images)]), ...Object.values(w.homes.kinds).flatMap(k => [k.image, ...parts(k.images)]), ...w.places.flatMap(p => [p.bg, ...parts(p.bgs)]), ...(w.plan?.floors ?? []).flatMap(f => [f.image, ...parts(f.images)])].filter((x) => !!x);
+    return [w.cover, ...Object.values(w.music ?? {}), ...w.maps.flatMap(m => [m.image, ...parts(m.images)]), ...Object.values(w.homes.kinds).flatMap(k => [k.image, ...parts(k.images)]), ...w.places.flatMap(p => [p.bg, ...parts(p.bgs)]), ...(w.plan?.floors ?? []).flatMap(f => [f.image, ...parts(f.images)]),
+        ...interiorsOf(w).flatMap(it => [...(it.floors ?? []).flatMap((f) => [f.image, ...parts(f.images)]), ...(it.templates ?? []).flatMap((t) => [t.bg, ...parts(t.bgs)])])].filter((x) => !!x);
 }
 /* ---------- export and import ---------- */
 const toDataUrl = async (url) => {
