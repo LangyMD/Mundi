@@ -22,7 +22,7 @@ ok(N.narrLevel('reply', 'off') === 'off' && N.narrLevel(3, 'engine') === 'engine
 let t = N.engineLine({ ...base, kind: 'arrive' });
 ok(t === 'You arrive at Café Aurora. It is busy. Mia Chen is here.', `arrive line: ${t}`);
 t = N.engineLine({ ...base, kind: 'arrive', people: [], crowd: 'a few people' });
-ok(/A few people are around\. Nobody else is here\.$/.test(t), `arrive, nobody you know: ${t}`);
+ok(/A few people are around\. Nobody you know is here\.$/.test(t), `arrive, nobody you know: ${t}`);
 t = N.engineLine({ ...base, kind: 'arrive', closed: true, people: ['Mia Chen', 'Leo', 'Ana'] });
 ok(/closed at this hour/.test(t) && /Mia Chen, Leo and Ana are here\./.test(t), `closed, three people: ${t}`);
 t = N.engineLine({ ...base, kind: 'arrive', crowd: '' });
@@ -31,10 +31,34 @@ t = N.engineLine({ ...base, kind: 'action', action: 'Take a shower', minutes: 20
 ok(t === 'You take a shower (20 minutes).', `action alone: ${t}`);
 t = N.engineLine({ ...base, kind: 'action', action: 'Watch a film', minutes: 120, people: ['Leo', 'Mia Chen'], came: ['Mia Chen'] });
 ok(/\(2 hours\)/.test(t) && /Meanwhile Mia Chen came in\./.test(t) && /Leo is still here\./.test(t), `someone came in: ${t}`);
-t = N.engineLine({ ...base, kind: 'action', action: 'Cook', minutes: 90, people: [], left: ['Mia Chen'] });
+t = N.engineLine({ ...base, kind: 'action', action: 'Cook', minutes: 90, people: [], left: ['Mia Chen'], crowd: '' });
 ok(/1 h 30 min/.test(t) && /Mia Chen left meanwhile\./.test(t) && /You are alone now\./.test(t), `someone left: ${t}`);
 t = N.engineLine({ ...base, kind: 'action', action: 'Go fishing', minutes: 60, result: 'Success. The fish bites.', people: [] });
 ok(/\(1 hour\)\. Success\. The fish bites\.$/.test(t), `result kept: ${t}`);
+
+/* ---------- a busy place with nobody you know in it is not empty ---------- */
+t = N.engineLine({ ...base, kind: 'arrive', people: [], crowd: 'busy' });
+ok(t === 'You arrive at Café Aurora. It is busy. Nobody you know is here.', `busy, nobody known: ${t}`);
+t = N.engineLine({ ...base, kind: 'arrive', people: [], crowd: 'empty' });
+ok(/It is empty\. Nobody else is here\.$/.test(t), `empty: ${t}`);
+t = N.engineLine({ ...base, kind: 'arrive', people: [], crowd: 'busy', closed: true });
+ok(/Nobody else is here\.$/.test(t), `closed: ${t}`);
+t = N.engineLine({ ...base, kind: 'action', action: 'Have a coffee', minutes: 20, people: [], left: ['Mia Chen'], crowd: 'busy' });
+ok(/Nobody you know is here now\.$/.test(t) && !/alone/.test(t), `left in a busy place: ${t}`);
+{
+    const busy = N.narratePrompt({ ...base, kind: 'arrive', people: [], crowd: 'busy' });
+    ok(!/is alone here|nobody else is around/.test(busy), 'busy: the AI is not told the place is empty');
+    ok(/is not alone: the place is busy with strangers/.test(busy) && /as background/.test(busy), 'busy: strangers are the background');
+    ok(/never named, never speaking to Aiden/.test(busy), 'busy: they are not named and do not speak');
+    const packed = N.narratePrompt({ ...base, kind: 'arrive', crowd: 'packed' });
+    ok(/Here now with Aiden: Mia Chen\. Around them, the place is packed with strangers/.test(packed) && !/Nobody else\./.test(packed), 'someone you know, in a crowd');
+    const empty = N.narratePrompt({ ...base, kind: 'arrive', people: [], crowd: 'empty' });
+    ok(/Aiden is alone here\./.test(empty) && /nobody else is around/.test(empty), 'an empty place is still empty');
+    const home = N.narratePrompt({ ...base, kind: 'arrive', people: [], crowd: '' });
+    ok(/Aiden is alone here\./.test(home), 'at home with nobody: alone');
+    const act = N.narratePrompt({ ...base, kind: 'action', action: 'Have a coffee', minutes: 20, people: [], crowd: 'a few people' });
+    ok(/the strangers around stay in the background/.test(act) && !/ends up alone/.test(act), 'an action in a place with people around');
+}
 
 /* ---------- the request ---------- */
 let p = N.narratePrompt({ ...base, kind: 'arrive', why: ['Mia Chen is on her shift.'] }, '', 'Keep it bleak.', '');
@@ -42,14 +66,14 @@ ok(p.includes('Place: Café Aurora — A small corner café.') && p.includes('Ho
 ok(p.includes('Mia Chen is on her shift.') && p.includes('has just arrived at Café Aurora'), 'arrive: why and task');
 ok(/do not speak or address Aiden yet/.test(p) && p.includes('Keep it bleak.'), 'arrive: nobody speaks, style kept');
 ok(!p.includes('The last lines of the story'), 'arrive: no old lines');
-p = N.narratePrompt({ ...base, kind: 'arrive', people: [] });
+p = N.narratePrompt({ ...base, kind: 'arrive', people: [], crowd: '' });
 ok(p.includes('Aiden is alone here.') && p.includes('nobody else is around'), 'arrive alone');
 p = N.narratePrompt({ ...base, kind: 'action', action: 'Watch a film', minutes: 120, came: ['Mia Chen'], left: ['Leo'], result: 'Success. Good film.' }, 'Aiden: hm', '', 'Write in English.');
 ok(p.includes('What Aiden just did: watch a film, for 2 hours.') && p.includes('already decided, do not change it): Success. Good film.'), 'action: what and result');
 ok(p.includes('While it lasted, Mia Chen came in') && p.includes('must show Mia Chen arriving partway through'), 'action: arrival must be shown');
 ok(p.includes('Leo left and is no longer here') && p.includes('must show Leo leaving'), 'action: departure must be shown');
 ok(p.includes('The last lines of the story:\nAiden: hm') && p.trim().endsWith('Write in English.'), 'action: recent lines and language');
-p = N.narratePrompt({ ...base, kind: 'action', action: 'Take a shower', minutes: 20, people: [] });
+p = N.narratePrompt({ ...base, kind: 'action', action: 'Take a shower', minutes: 20, people: [], crowd: '' });
 ok(p.includes('ends up alone: nobody appears') && !p.includes('While it lasted'), 'action alone');
 ok(/never write what anyone says/.test(N.NARRATE_SYSTEM), 'system line');
 
