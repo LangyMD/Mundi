@@ -827,7 +827,7 @@
     "study"
    ],
    "effects": {
-    "hygiene": 50
+    "hygiene": 20
    }
   },
   {
@@ -899,8 +899,8 @@
   },
   {
    "id": "gymshower",
-   "name": "Shower at the gym",
-   "label": "Shower at the gym",
+   "name": "Rinse off",
+   "label": "Rinse off after a workout",
    "icon": "🚿",
    "cost": 0,
    "minutes": 20,
@@ -996,7 +996,7 @@
     "dc": 13,
     "traits": [
      "Creative",
-     "Skilled with hands"
+     "Handy"
     ],
     "success": {
      "text": "Your painting sold quickly.",
@@ -1064,7 +1064,7 @@
   {
    "id": "x-workout",
    "name": "Workout",
-   "label": "Work out at the gym",
+   "label": "Work out",
    "icon": "🏋️",
    "cost": 15,
    "minutes": 90,
@@ -2314,7 +2314,7 @@
    "trait": "Nightlife",
    "desc": "Drinks out six times in a week.",
    "actions": [
-    "drink"
+    "out-night"
    ],
    "count": 6,
    "days": 7,

@@ -141,10 +141,9 @@ export function actionsHere(g, w) {
     const broken = brokenThings(g, w).length > 0;
     const closed = !atHome && systemOn(w, 'living') && !openNow(g, w, g.player.loc); // a closed place: only what can be done anywhere
     // a scenario: the actions chosen for this room when the game started (instead of those its tags bring)
-    const chosen = isScenario(w) ? g.cfg?.roomActs?.[g.player.loc] : undefined;
+    const chosen = isScenario(w) ? roomChosen(g.cfg, w, placeOf(g, w, g.player.loc)) : undefined;
     // Home: no money, so nothing to earn or pay, and going out has its own button (Go out)
     const homeMode = isScenario(w);
-    const earns = (a) => a.cost < 0 || (a.roll?.success?.money ?? 0) > 0 || !!a.outing;
     const base = w.actions.filter(useful).filter(a => !homeMode || !earns(a)).filter(a => !isBlocked(g, a, w)).filter(a => a.id !== 'fix' || broken)
         .filter(a => homeMode || !a.needsItem || hasItem(g, a.needsItem)).filter(a => chosen || !(a.notTags ?? []).some(t => tags.includes(t))).filter(a => chosen ? (a.anywhere || chosen.includes(a.id)) : (a.home && atHome)
         || (a.place && a.place === g.player.loc)
@@ -156,13 +155,50 @@ export function actionsHere(g, w) {
     // Home: a bathroom or a shower room is not where you grab a snack (what can be done anywhere stays out of it,
     // unless it was chosen for that room)
     const pl = placeOf(g, w, g.player.loc);
-    const wet = homeMode && !!pl && /bath|shower|wash|toilet|restroom|banheiro|lavabo|chuveiro|ba[nñ]o|aseo|ducha/i.test(`${pl.id} ${pl.name}`);
+    const wet = homeMode && wetRoom(pl);
     if (homeMode) {
         const list = all.filter(a => !earns(a)).filter(a => !wet || !a.anywhere || !!chosen?.includes(a.id));
         const pool = w.actions.filter(useful).filter(a => !earns(a)).filter(a => !isBlocked(g, a, w));
         return homeRoomActions(pl, list, pool, chosen, wet).map(a => (a.cost ? { ...a, cost: 0 } : a));
     }
     return all.map(a => (a.cost ? { ...a, cost: a.cost > 0 ? Math.round(priceOf(g, a.cost) * here) : priceOf(g, a.cost) } : a));
+}
+// Home: what earns or costs a trip out is not a thing to do in a room (no money in a Home).
+const earns = (a) => a.cost < 0 || (a.roll?.success?.money ?? 0) > 0 || !!a.outing;
+const wetRoom = (pl) => !!pl && /bath|shower|wash|toilet|restroom|banheiro|lavabo|chuveiro|ba[nñ]o|aseo|ducha/i.test(`${pl.id} ${pl.name ?? ''}`);
+/** Home: the actions that can be chosen for a room (everything but what is possible anywhere, and what earns money). */
+export const roomActionChoices = (w) => w.actions.filter(a => !a.anywhere && !earns(a));
+/** Home: what a room offers when nothing was chosen for it: the same list the game shows there (a shower in the
+ *  bathrooms, cooking in the kitchen, the TV in the living room…), without what is possible anywhere. */
+export function roomDefaults(w, pl) {
+    if (!pl)
+        return [];
+    const tags = pl.tags ?? [];
+    const pool = w.actions.filter(a => !earns(a));
+    const list = pool.filter(a => !a.anywhere && !(a.notTags ?? []).some(t => tags.includes(t)))
+        .filter(a => (a.place && a.place === pl.id) || (!a.home && !a.place && (a.tags ?? []).some(t => tags.includes(t))));
+    return homeRoomActions({ id: pl.id, name: pl.name ?? '', tags }, list, pool, undefined, wetRoom(pl)).filter(a => !a.anywhere).map(a => a.id);
+}
+/** Home: the list chosen for a room (undefined: none, the room's defaults apply). A list made before the things done
+ *  at home (a shower, cooking, the TV…) could be chosen (`roomActsV` below 2) keeps the room's default ones: they
+ *  could not be ticked then, so leaving them out was never a choice. */
+export function roomChosen(c, w, pl) {
+    const list = pl ? c?.roomActs?.[pl.id] : undefined;
+    if (!list || !pl || (c?.roomActsV ?? 0) >= 2)
+        return list;
+    const home = new Set(w.actions.filter(a => a.home).map(a => a.id));
+    return [...new Set([...list, ...roomDefaults(w, pl).filter(id => home.has(id))])];
+}
+/** Brings every chosen list to the current form (see `roomChosen`); `rooms`: the rooms of this house. */
+export function upgradeRoomActs(c, w, rooms) {
+    if ((c.roomActsV ?? 0) >= 2)
+        return;
+    for (const id of Object.keys(c.roomActs ?? {})) {
+        const pl = rooms.find(r => r.id === id);
+        if (pl)
+            c.roomActs[id] = roomChosen(c, w, pl);
+    }
+    c.roomActsV = 2;
 }
 // Water, power… of a kind of home, paid with the rent.
 export const billsOf = (w, kind) => Object.values(w.homes.kinds[kind]?.bills ?? {}).reduce((a, b) => a + b, 0);

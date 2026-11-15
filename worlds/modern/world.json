@@ -263,7 +263,8 @@
    "tags": [
     "work",
     "leisure",
-    "food"
+    "food",
+    "bar"
    ],
    "desc": "a tall hotel with a rooftop pool and a bar with a view over the whole city.",
    "event": "Music drifts down from the rooftop.",
@@ -514,7 +515,8 @@
    "y": 59,
    "tags": [
     "food",
-    "leisure"
+    "leisure",
+    "bar"
    ],
    "desc": "a log lodge with a fireplace, hot chocolate, beer and rooms for climbers.",
    "closed": [],
@@ -592,7 +594,8 @@
    "y": 54,
    "tags": [
     "food",
-    "leisure"
+    "leisure",
+    "bar"
    ],
    "desc": "a country saloon with a jukebox, pie and cold beer.",
    "closed": [
@@ -799,7 +802,8 @@
     "shop",
     "food",
     "leisure",
-    "work"
+    "work",
+    "bar"
    ],
    "desc": "a wooden boardwalk of surf shops, juice bars and a beach bar.",
    "closed": [
@@ -1750,7 +1754,7 @@
     "study"
    ],
    "effects": {
-    "hygiene": 50
+    "hygiene": 20
    }
   },
   {
@@ -1854,8 +1858,8 @@
   },
   {
    "id": "gymshower",
-   "name": "Shower at the gym",
-   "label": "Shower at the gym",
+   "name": "Locker-room shower",
+   "label": "Shower in the locker room",
    "icon": "🚿",
    "cost": 0,
    "minutes": 20,
@@ -1939,7 +1943,7 @@
     "dc": 13,
     "traits": [
      "Creative",
-     "Skilled with hands"
+     "Handy"
     ],
     "success": {
      "text": "Your painting sold quickly.",
@@ -2040,7 +2044,7 @@
   {
    "id": "x-workout",
    "name": "Workout",
-   "label": "Work out at the gym",
+   "label": "Work out",
    "icon": "🏋️",
    "cost": 15,
    "minutes": 90,
@@ -2092,6 +2096,22 @@
     "hygiene": -20,
     "mood": 6,
     "thirst": -10
+   }
+  },
+  {
+   "id": "x-drinks",
+   "name": "Drinks",
+   "label": "Have a drink at the bar",
+   "icon": "🍸",
+   "cost": 12,
+   "minutes": 45,
+   "tags": [
+    "bar"
+   ],
+   "effects": {
+    "mood": 10,
+    "thirst": 10,
+    "energy": -3
    }
   }
  ],
@@ -4516,7 +4536,7 @@
   },
   {
    "id": "shepherd",
-   "name": "Farmhand",
+   "name": "Shepherd",
    "place": "pc_farm",
    "ranks": [
     {
@@ -5024,7 +5044,7 @@
    },
    "likes": [
     "Creative",
-    "Skilled with hands"
+    "Handy"
    ],
    "hours": [
     9,
@@ -5514,7 +5534,7 @@
    "trait": "Nightlife",
    "desc": "Drinks out six times in a week.",
    "actions": [
-    "drink"
+    "x-drinks"
    ],
    "count": 6,
    "days": 7,
