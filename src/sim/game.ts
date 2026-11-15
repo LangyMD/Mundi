@@ -390,6 +390,8 @@ export function syncScene(): Promise<void> {
         // Home: the room's dress code (the outfits are looked up in the background; the next sync catches up)
         { const { applyDress, dressAt } = await import('./dress.js'); const { outfitsOf, hasOutfit } = await import('../ui/outfits.js'); const code = dressAt(g, g.player.loc);
           applyDress(g, w, a => { const l = outfitsOf(a); if (!code) return l; const h = hasOutfit(a, code); return h === null ? null : h ? [...(l ?? []), code] : (l ?? []); }); }
+        // what everyone wears follows the moment (sleepwear at night, work clothes on shift…), unless set by hand
+        { const { dressScene, loadWardrobe } = await import('../ui/looksui.js'); dressScene(g, w); here.forEach(r => void loadWardrobe(r.avatar)); }
         followBackground(g, w);
         refreshPrompt();
         saveGame();

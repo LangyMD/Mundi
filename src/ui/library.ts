@@ -3,6 +3,7 @@
 // settings" (shown only while editing) adds the fields most players never touch and SillyTavern's own panels.
 // Every change is saved into the native SillyTavern object (card, persona, lorebook, chat).
 import { state, notify, esc, game, toast, busy, settings, saveSettings, type LibFolder } from '../core/store.js';
+import { forgetLookSprites } from './looksui.js';
 import { getWorld, loadWorld, BUILT_IN, activeStatuses, worlds } from '../core/world.js';
 import {
     ctx, characters, charOf, thumb, fullCharacter, saveCharacter, personas, savePersona, personaThumb, persona,
@@ -965,12 +966,13 @@ Object.assign(ACT, {
         const file = await pickFile('image/*');
         if (!file) return;
         await busy('Uploading', () => uploadSprite(id, el.dataset.l!, file, el.dataset.s || el.dataset.l!, EO.outfit));
-        forgetOutfits(id); delete (state.sprites as any)[id];
+        forgetOutfits(id); forgetLookSprites(id); delete (state.sprites as any)[id];
         L.sprites = null; notify();
     },
     'lib-expr-del': async (el) => {
         const id = L.expr; if (!id) return;
         await busy('Deleting', () => deleteSprite(id, el.dataset.l!, el.dataset.s!, EO.outfit));
+        forgetLookSprites(id);
         delete (state.sprites as any)[id];
         L.sprites = null; notify();
     },

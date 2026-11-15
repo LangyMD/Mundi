@@ -32,6 +32,8 @@ export interface Place {
     closed?: string[];
     /** The scene's background for some parts of the day (period id → picture). */
     bgs?: Record<string, string>;
+    /** What people wear here by themselves (sim/looks.ts): a category such as 'swimwear' or 'athletic', or 'outdoors' / 'indoors'. Left out: guessed from the tags and the name. */
+    wear?: string;
     /** A pin that opens another map (a city on the region map) instead of being a place. */
     link?: string;
     /** A scenario: a room that is off unless the player chooses it when starting (the rooms are picked per game). */

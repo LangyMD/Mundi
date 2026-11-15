@@ -2,6 +2,16 @@
 
 ## Unreleased (this fork)
 
+- **Clothes the game keeps track of:** everyone in the scene, and you, now have a look in the save: a kind of outfit
+  (everyday, formal, athletic, sleepwear, party, swimwear, hot weather, cold weather, work) and a layer (with
+  outerwear, the outfit, underwear, nothing). The game changes it by itself: sleepwear at home at night, work clothes
+  on shift, swimwear at the beach or pool, athletic at the gym, a coat outdoors in winter or rain, light clothes on a
+  sunny summer day. Click a sprite → Clothes to set it by hand (it then stays until "As the moment asks"). The AI is
+  told what people wear (AI context → Clothes block).
+- **Pictures follow the look:** a character with folders named `everyday`, `formal-outer`, `underwear`… in their
+  Expressions folder shows the pictures of the look they wear now, falling back to the nearest folder they have. An
+  `outfits.json` beside them (written by the card generator) gives the AI the words for each outfit. Characters
+  without those folders look as before, and outfits put on the old way are kept.
 - **A narrator:** This world → AI context → AI calls. When you arrive somewhere, the narrator describes the place at
   that hour and who is there (one AI call; or a plain line from the game with no call; or nothing). When you do
   something (a shower, cooking, a film), the narrator tells how it goes instead of whichever character happens to be

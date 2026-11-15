@@ -2,6 +2,7 @@
 // The conversation IS the group chat: generation, streaming, swipes, regenerate, continue, impersonate,
 // editing and deleting all use SillyTavern's own functions.
 import { isRpg } from '../sim/rpg.js';
+import { lookSprites } from './looksui.js';
 import { setHtml } from '../core/safe.js';
 import { lex } from '../core/lexicon.js';
 import { setPrompt } from '../st/bridge.js';
@@ -21,7 +22,7 @@ import { getWorld, worldFile, systemOn, type WorldDef } from '../core/world.js';
 import type { Save } from '../core/store.js';
 import {
     chat, speakerOf, thumb, sendText, replyAs, regenerate, continueLast, impersonate, stop, swipeLeft, swipeRight,
-    editMessage, deleteMessageAt, expressionOf, fetchSprites, saveChat, me, currentCharacter, charOf, characters, ctx,
+    editMessage, deleteMessageAt, expressionOf, saveChat, me, currentCharacter, charOf, characters, ctx,
     addUserLine, narratorLine, personaName, quiet, lorebooks, chatLores, setChatLores,
     scenarioOpen, scenarioCast, scenarioTitle, addToScenario, removeFromScenario, setChatBackground, newScenarioChat,
     persona, personas, personaThumb, usePersona, setForReply, WILL_KEY,
@@ -112,7 +113,7 @@ function spriteFor(avatar: string, label: string | null): string {
     const list = state.sprites[avatar];
     if (list === undefined) {
         state.sprites[avatar] = null;
-        fetchSprites(avatar).then(l => { state.sprites[avatar] = l; notify(); });
+        lookSprites(avatar).then(l => { state.sprites[avatar] = l; notify(); });   // the pictures of what they wear now
         return '';
     }
     if (!list?.length) return '';

@@ -13,7 +13,10 @@ import { romanceButtons } from './relui.js';
 import { outfitOf, wearOutfit, charOf } from '../st/bridge.js';
 import { outfitsOf, outfitLabel } from './outfits.js';
 import { guestButtons } from './guestsui.js';
-export const RAD = { who: '' };
+import { CATEGORIES, LAYERS, LAYER_NAME, categoryName, lookOf, looks, setLook, unlockLook } from '../sim/looks.js';
+import { saveGame } from '../core/store.js';
+import { refreshPrompt } from '../sim/prompt.js';
+export const RAD = { who: '', looks: false };
 const btn = (act, who, ic, label, extra = '') => `<button data-act="${esc(act)}" data-who="${esc(who)}" ${extra}>${icon(ic)}<span>${esc(label)}</span></button>`;
 // The buttons of an HTML snippet (romance, stay), so they sit on the arc like the others.
 const buttonsIn = (html) => html.match(/<button[\s\S]*?<\/button>/g) ?? [];
@@ -32,13 +35,24 @@ function actions(g, w, r) {
     out.push(btn('pc-open', r.avatar, 'user', 'Their card'));
     return out;
 }
+// What they wear (sim/looks.ts): the kinds of outfit on the left, the layers on the right. Set by hand, it stays
+// until "As the moment asks" gives it back to the game.
+const CAT_ICON = { everyday: '👕', formal: '👔', athletic: '🎽', sleepwear: '🌙', party: '🎉', swimwear: '🩱', 'hot-weather': '☀️', 'cold-weather': '🧣', career: '💼' };
+const LAYER_ICON = { outer: '🧥', normal: '👚', underwear: '🩲', naked: '🚿' };
+function lookButtons(g, avatar) {
+    const cur = lookOf(g, avatar), locked = !!looks(g)[avatar]?.lock;
+    const b = (kind, v, ic, label, on) => `<button data-act="spr-look" data-who="${esc(avatar)}" data-k="${kind}" data-v="${esc(v)}" class="${on ? 'is-on' : ''}">${ic}<span>${esc(label)}</span></button>`;
+    return [CATEGORIES.map(c => b('cat', c, CAT_ICON[c] ?? '👗', categoryName(c), cur.category === c)),
+        [b('auto', '', '✨', 'As the moment asks', !locked), ...LAYERS.map(l => b('layer', l, LAYER_ICON[l], LAYER_NAME[l], cur.layer === l)), `<button data-act="spr-looks" data-who="${esc(avatar)}">${icon('back')}<span>Back</span></button>`]];
+}
 function outfits(avatar) {
+    const clothes = `<button data-act="spr-looks" data-who="${esc(avatar)}">👗<span>Clothes</span></button>`;
     const list = outfitsOf(avatar);
     if (!list?.length)
-        return [];
+        return [clothes];
     const cur = outfitOf(avatar);
     return [`<button data-act="spr-outfit" data-who="${esc(avatar)}" data-o="" class="${cur ? '' : 'is-on'}">👕<span>Default</span></button>`,
-        ...list.map(o => `<button data-act="spr-outfit" data-who="${esc(avatar)}" data-o="${esc(o)}" class="${cur.toLowerCase() === o.toLowerCase() ? 'is-on' : ''}">👗<span>${esc(outfitLabel(o))}</span></button>`)];
+        ...list.map(o => `<button data-act="spr-outfit" data-who="${esc(avatar)}" data-o="${esc(o)}" class="${cur.toLowerCase() === o.toLowerCase() ? 'is-on' : ''}">👗<span>${esc(outfitLabel(o))}</span></button>`), clothes];
 }
 // Puts the buttons on an arc: angle from top to bottom on each side.
 const arc = (items, side) => {
@@ -53,7 +67,8 @@ export function radialHtml(avatar, r) {
     const w = g && getWorld(g.world);
     if (!g || !w)
         return '';
-    const right = r ? actions(g, w, r) : [], left = outfits(avatar);
+    const [cats, layers] = RAD.looks && r ? lookButtons(g, avatar) : [[], []];
+    const right = RAD.looks && r ? layers : r ? actions(g, w, r) : [], left = RAD.looks && r ? cats : r ? outfits(avatar) : outfits(avatar).slice(0, -1);
     if (!right.length && !left.length)
         return '';
     return `<div class="mu-radial" role="menu" aria-label="${esc(r?.name ?? String(charOf(avatar)?.name ?? ''))}">
@@ -65,10 +80,32 @@ Object.assign(ACT, {
             return;
         const who = el.dataset.who ?? '';
         RAD.who = RAD.who === who ? '' : who;
+        RAD.looks = false;
+        notify();
+    },
+    'spr-looks': (_el, e) => { e?.stopPropagation?.(); RAD.looks = !RAD.looks; notify(); },
+    'spr-look': (el, e) => {
+        e?.stopPropagation?.();
+        const g = game();
+        if (!g)
+            return;
+        const who = el.dataset.who, cur = lookOf(g, who), name = String(charOf(who)?.name ?? '');
+        if (el.dataset.k === 'auto') {
+            unlockLook(g, who);
+            toast(`${name} dresses as the moment asks again.`, 'success');
+            void import('../sim/game.js').then(m => m.syncScene()).then(notify);
+        }
+        else {
+            const category = el.dataset.k === 'cat' ? el.dataset.v : cur.category, layer = el.dataset.k === 'layer' ? el.dataset.v : cur.layer === 'outer' && el.dataset.k === 'cat' ? 'normal' : cur.layer;
+            setLook(g, who, category, layer, 'you chose it', true);
+            refreshPrompt();
+        }
+        saveGame();
         notify();
     },
     'spr-close': () => { if (RAD.who) {
         RAD.who = '';
+        RAD.looks = false;
         notify();
     } },
     'spr-outfit': async (el) => {
@@ -86,15 +123,20 @@ document.addEventListener('click', (e) => {
     const t = e.target;
     if (!RAD.who)
         return;
-    if (t.closest?.('[data-rad]')) {
+    const b = t.closest?.('[data-rad]');
+    if (b && /^spr-looks?$/.test(b.dataset.act ?? ''))
+        return; // the clothes stay open while you choose
+    if (b) {
         setTimeout(() => { if (RAD.who) {
             RAD.who = '';
+            RAD.looks = false;
             notify();
         } }, 0);
         return;
     }
     if (!t.closest?.('.mu-sprite')) {
         RAD.who = '';
+        RAD.looks = false;
         notify();
     }
 }, true);

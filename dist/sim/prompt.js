@@ -11,6 +11,7 @@ import { aiLangNote } from '../core/i18n.js';
 import { setPrompt, setPromptInChat, nameOf } from '../st/bridge.js';
 import { styleOf, styleText } from './style.js';
 import { NARRATOR_RULE } from './narrate.js';
+import { looksLines } from './looks.js';
 import { UI } from '../core/store.js';
 import { weekday, hm, period, seasonOf } from './time.js';
 import { placeOf } from './places.js';
@@ -69,6 +70,7 @@ export const BLOCKS = [
     { id: 'romance', name: 'Friendship and romance', desc: 'Where you stand with each person here.', cut: 7 },
     { id: 'family', name: 'Your children', desc: 'Your children\'s age and how to treat them. Always sent when they are here.' },
     { id: 'ties', name: 'Family and ties', desc: 'Who is whose sister, parent, roommate…', cut: 6 },
+    { id: 'looks', name: 'Clothes', desc: 'What the people here and you are wearing, when it is not plain everyday clothes.', cut: 7 },
     { id: 'needs', name: 'How you feel', desc: 'Hunger, tiredness… only what stands out.', cut: 6 },
     { id: 'diary', name: 'Diary', desc: 'The last two days of your diary.', cut: 5 },
     { id: 'lore', name: 'World lore', desc: 'World lore that switches on with weather, time or place.', cut: 5 },
@@ -157,6 +159,7 @@ export function sceneBlocks() {
         family: [familyLine(g, present)],
         rumors: rumorLines(g, met),
         lore: activeWorldLore(g, w),
+        looks: looksLines(g, present),
         needs: [feelings(g, w)],
         extra: [pc.extra],
     };

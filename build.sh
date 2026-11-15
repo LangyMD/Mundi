@@ -20,6 +20,8 @@ node tests/input.test.mjs > /tmp/mundi-input-test.log 2>&1 || { grep -v "^\[Mund
 echo "input: $(tail -1 /tmp/mundi-input-test.log)"
 node tests/narrator.test.mjs > /tmp/mundi-narrator-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-narrator-test.log; echo "NARRATOR TESTS FAILED"; exit 1; }
 echo "narrator: $(tail -1 /tmp/mundi-narrator-test.log)"
+node tests/looks.test.mjs > /tmp/mundi-looks-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-looks-test.log; echo "LOOKS TESTS FAILED"; exit 1; }
+echo "looks: $(tail -1 /tmp/mundi-looks-test.log)"
 node tests/guests.test.mjs > /tmp/mundi-guests-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-guests-test.log; echo "GUEST TESTS FAILED"; exit 1; }
 echo "guests: $(tail -1 /tmp/mundi-guests-test.log)"
 node tests/security.test.mjs > /tmp/mundi-security-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-security-test.log; echo "SECURITY TESTS FAILED"; exit 1; }
