@@ -14,6 +14,7 @@ import { note } from './facts.js';
 import { placeOf, playerHomeId } from './places.js';
 import { book } from './ledger.js';
 import { extraActions, isBlocked, brokenThings, hasItem } from './life.js';
+import { decayMult, gainMult } from './modifiers.js';
 const clamp = (v, max) => Math.max(0, Math.min(max, Math.round(v)));
 export const statusDef = (w, id) => w.statuses.find(s => s.id === id);
 // One currency per world: "$120", "40 g", "300 Berries". (Coins of several metals were dropped: an old world that still
@@ -34,6 +35,18 @@ export function addStatus(g, w, id, delta) {
         return;
     }
     g.player.stats[id] = clamp((g.player.stats[id] ?? d.start) + delta, d.max);
+}
+// What fills a need (a meal, a chat) counts for more or less with who you are (sim/modifiers.ts); what costs it stays
+// as it is. A need that is not in play in this game is left alone. `action`: the action it comes from.
+export function fill(g, w, id, amount, action) {
+    if (statusDef(w, id)?.optional && !activeStatuses(w, g).some(s => s.id === id))
+        return;
+    addStatus(g, w, id, amount > 0 ? amount * gainMult(g, w, id, action) : amount);
+}
+// Company: talking to someone, a text, running into a friend. Fills the social need when this game has it.
+export function socialContact(g, w, amount) {
+    if (w && amount > 0 && activeStatuses(w, g).some(s => s.id === 'social'))
+        fill(g, w, 'social', amount);
 }
 // How many whole periods of `every` minutes passed since the rule last ran (and moves its mark forward).
 function periods(g, key, every) {
@@ -56,8 +69,17 @@ export function applyTimedRules(g, w) {
         if (s.decay) {
             const n = periods(g, `decay:${s.id}`, s.decay.everyMinutes);
             // (walking the map costs no energy)
-            if (n > 0 && !(s.decay.awakeOnly && g.asleep) && !(s.id === 'energy' && g.traveling))
-                addStatus(g, w, s.id, -s.decay.amount * n * (cfg(g).decay ?? 1) * decayMods.reduce((m, f) => m * f(g, w, s.id), 1));
+            if (n > 0 && !(s.decay.awakeOnly && g.asleep) && !(s.id === 'energy' && g.traveling)) {
+                // whole points only; what is left over (a trait that slows a need by a tenth) is carried to the next time
+                const drop = s.decay.amount * n * (cfg(g).decay ?? 1) * decayMods.reduce((m, f) => m * f(g, w, s.id), 1) * decayMult(g, w, s.id) + (g.tick[`carry:${s.id}`] ?? 0);
+                const whole = Math.floor(drop + 1e-9), rest = Math.round((drop - whole) * 1000) / 1000;
+                if (rest > 0)
+                    g.tick[`carry:${s.id}`] = rest;
+                else
+                    delete g.tick[`carry:${s.id}`];
+                if (whole)
+                    addStatus(g, w, s.id, -whole);
+            }
         }
         const v = g.player.stats[s.id] ?? s.start;
         // (Home: an empty need only shows, and the AI is told; nobody faints)
@@ -208,7 +230,7 @@ export function applyAction(g, w, a) {
     if (a.cost)
         book(g, a.name, -a.cost);
     for (const [id, v] of Object.entries(a.effects))
-        addStatus(g, w, id, v);
+        fill(g, w, id, v, a.id);
     for (const f of onAction)
         f(g, w, a);
 }

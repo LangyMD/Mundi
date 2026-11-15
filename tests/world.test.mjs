@@ -233,8 +233,10 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     const work = await D('sim/work.js');
     const g = open(fixture('v0.1.0-modern.json'));
     const idsAt = (loc) => { g.player.loc = loc; return needs.actionsHere(g, modern).map(a => a.id); };
+    const mine = g.player.traits; g.player.traits = {};   // (the usual pace: no trait that saves or costs energy)
     at(g, 3, 8 * 60); g.player.stats.energy = 100; g.tick = {};
     time.advance(g, modern, 60); time.advance(g, modern, 600);
+    g.player.traits = mine;
     ok(g.player.stats.energy <= 62 && g.player.stats.energy >= 50, `ten hours awake cost energy (${g.player.stats.energy})`);
     g.asleep = true; const e0 = g.player.stats.energy; time.advance(g, modern, 240); g.asleep = false;
     ok(g.player.stats.energy === e0, 'no energy is lost while asleep');
@@ -259,6 +261,76 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     g.player.job = { id: 'bartender', rank: 0, shifts: 0 }; g.player.stats.energy = 100; at(g, 6, 20 * 60);
     work.workShift(g, modern, 'normal');
     ok(g.day === 7 && work.shiftLeft(g, bar) === 0, 'a night shift past midnight still counts for the night it began');
+}
+// who you are changes your needs and relationships; the optional social need
+{
+    const mods = await D('sim/modifiers.js'); const soc = await D('sim/social.js'); const rom = await D('sim/romance.js'); const presets = await D('core/presets.js');
+    const g = open(fixture('v0.1.0-modern.json'));
+    const run = (traits, f) => { g.player.traits = { personality: traits }; g.tick = {}; g.asleep = false; return f(); };
+    const moodAfter = (traits) => run(traits, () => { at(g, 3, 8 * 60); g.player.stats.mood = 80; time.advance(g, modern, 1); time.advance(g, modern, 720); return g.player.stats.mood; });
+    const plain = moodAfter([]), cheerful = moodAfter(['Cheerful']), hot = moodAfter(['Hot-headed']);
+    ok(cheerful > plain && hot < plain, `a cheerful person keeps their mood longer, a hot-headed one loses it sooner (${cheerful} > ${plain} > ${hot})`);
+    g.player.traits = { personality: ['Cheerful', 'Calm', 'Devout'], habits: ['Athletic'], proficiency: ['Strong', 'Quick'] };
+    ok(mods.decayMult(g, modern, 'mood') >= 0.5 && mods.decayMult(g, modern, 'energy') >= 0.5 && mods.decayMult(g, modern, 'thirst') === 1, 'stacked traits never go past half speed; a need nobody touches is as it was');
+    ok(mods.decayMult(g, modern, 'energy') < 1, 'a trait that came from a habit counts like any other');
+    // what fills a need
+    const cook = modern.actions.find(a => a.id === 'cook'), meal = modern.actions.find(a => a.id === 'meal');
+    const eat = (traits, a) => run(traits, () => { g.player.stats.hunger = 10; g.player.money = 500; needs.applyAction(g, modern, a); return g.player.stats.hunger; });
+    ok(eat(['Good cook'], cook) > eat([], cook) && eat(['Good cook'], meal) === eat([], meal), 'a good cook gets more from cooking, not from a meal out');
+    g.player.traits = {}; g.player.hobbies = { fitness: 1000 };
+    ok(mods.decayMult(g, modern, 'energy') < 0.85, 'a high hobby level counts (working out: energy lasts longer)');
+    g.player.hobbies = {};
+    // bond and romance
+    const who = Object.keys(g.cast)[0];
+    const gain = (traits) => run(traits, () => { soc.social(g).bond[who] = 20; soc.social(g).today = {}; soc.addBond(g, who, 5); return soc.bondOf(g, who) - 20; });
+    ok(gain(['Charming']) > gain([]) && gain(['Shy']) < gain([]), 'a charming person makes friends faster, a shy one slower');
+    const love = (traits) => run(traits, () => { rom.romOf(g, who).value = 20; rom.addRomance(g, who, 8); return rom.romValue(g, who); });
+    ok(love(['Romantic']) === 30 && love([]) === 28, 'romance grows faster for a romantic');
+    g.player.traits = { personality: ['Romantic'] }; rom.romOf(g, who).value = 20; rom.addRomance(g, who, -8);
+    ok(rom.romValue(g, who) === 12, 'what is lost is lost as before');
+    const custom = structuredClone(modern); custom.id = 'mods'; custom.modifiers = [{ trait: 'Romantic', target: 'hunger', decay: 9 }]; W.registerWorld(custom);
+    ok(mods.decayMult(g, custom, 'hunger') === 2 && mods.gainMult(g, custom, 'romance') === 1, 'a world can bring its own table (kept within ×0.5 to ×2)');
+    g.player.traits = { personality: ['Outgoing'], interests: ['Books'] };
+    ok(mods.modifierLines(g, modern).some(l => /Outgoing: friendships grow 20% more/.test(l)) && !mods.modifierLines(g, modern).some(l => /social/.test(l)), 'the player is told what their traits change, only for what is in play');
+    // the social need: off unless this game turns it on
+    const social = modern.statuses.find(s => s.id === 'social');
+    ok(social?.optional && !W.activeStatuses(modern, g).some(s => s.id === 'social') && !W.activeStatuses(modern).some(s => s.id === 'social'), 'the social need is off by default');
+    g.player.traits = {}; delete g.player.stats.social; g.tick = {}; at(g, 3, 8 * 60);
+    time.advance(g, modern, 600); needs.applyAction(g, modern, { ...modern.actions.find(a => a.id === 'x-drinks'), cost: 0 }); soc.addBond(g, who, 3);
+    ok(g.player.stats.social === undefined, 'off: time, a drink and a chat leave it alone');
+    g.cfg = { ...(g.cfg ?? {}), optNeeds: ['social'] }; g.player.stats.social = social.start; g.tick = {}; at(g, 4, 8 * 60);
+    ok(W.activeStatuses(modern, g).some(s => s.id === 'social') && mods.modifierLines({ ...g, player: { ...g.player, traits: { personality: ['Outgoing'] } } }, modern).some(l => /social drops 25% faster/.test(l)), 'on for this game: it is a need like the others');
+    time.advance(g, modern, 1); time.advance(g, modern, 600);
+    const after10 = g.player.stats.social;
+    ok(after10 <= 42 && after10 >= 38, `ten hours awake without company cost social (${after10})`);
+    soc.social(g).today = {}; soc.addBond(g, who, 3);
+    ok(g.player.stats.social === after10 + 6, 'talking to someone fills it');
+    const s1 = g.player.stats.social; needs.applyAction(g, modern, { ...modern.actions.find(a => a.id === 'x-drinks'), cost: 0 });
+    ok(g.player.stats.social === s1 + 15, 'so does a drink at the bar');
+    g.player.stats.social = 0; g.player.stats.mood = 60; time.advance(g, modern, 180);
+    ok(g.player.stats.mood < 58, 'left empty, loneliness wears the mood down');
+    // Home: only with needs on, and only when chosen
+    const house = world(ext, 'house'); W.registerWorld(house);
+    const hg = { cfg: { needs: true } };
+    ok(!W.activeStatuses(house, hg).some(s => s.id === 'social') && W.activeStatuses(house, { cfg: { needs: true, optNeeds: ['social'] } }).some(s => s.id === 'social') && !W.activeStatuses(house, { cfg: { optNeeds: ['social'] } }).length, 'Home: the social need comes with needs on, when chosen');
+    // an older custom world gets the optional needs once
+    const oldw = structuredClone(modern); oldw.id = 'oldneeds'; oldw.statuses = oldw.statuses.filter(s => s.id !== 'social'); delete oldw.presetNeeds2;
+    presets.upgradeWorld(oldw);
+    ok(oldw.statuses.some(s => s.id === 'social' && s.optional) && oldw.presetNeeds2, 'a world made before it gets the social need (off until chosen)');
+    oldw.statuses = oldw.statuses.filter(s => s.id !== 'social'); presets.upgradeWorld(oldw);
+    ok(!oldw.statuses.some(s => s.id === 'social'), 'removed in the creator, it stays removed');
+    // friendships fade only when asked
+    const b = Object.keys(g.cast).slice(0, 3); const S = soc.social(g);
+    g.player.traits = {}; S.partner = [b[2]]; S.bond = { [b[0]]: 50, [b[1]]: 10, [b[2]]: 90 }; S.seen = { [b[0]]: g.day, [b[1]]: g.day, [b[2]]: g.day };
+    const d0 = g.day; g.day = d0 + 12;
+    for (let i = 0; i < 3; i++) soc.bondFade(g, modern);
+    ok(S.bond[b[0]] === 50, 'friendships do not fade unless this game asks for it');
+    g.cfg.bondFade = true; g.day = d0 + 7; soc.bondFade(g, modern);
+    ok(S.bond[b[0]] === 50, 'a week of silence is fine');
+    for (let d = 8; d <= 12; d++) { g.day = d0 + d; soc.bondFade(g, modern); }
+    ok(S.bond[b[0]] === 45 && S.bond[b[1]] === 10 && S.bond[b[2]] === 90, `after that a point a day; acquaintances and partners keep theirs (${S.bond[b[0]]})`);
+    soc.addBond(g, b[0], 1); g.day = d0 + 13; soc.bondFade(g, modern);
+    ok(S.bond[b[0]] >= 46, 'getting in touch stops the fading');
 }
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

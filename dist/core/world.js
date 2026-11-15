@@ -118,9 +118,12 @@ export const gameMode = (w) => {
 // (no energy, and no health at stake). `g` is the game, when the caller has it.
 export const HOME_NEEDS = ['hunger', 'thirst', 'mood', 'hygiene'];
 export const homeNeedsOn = (g) => !!g?.cfg?.needs;
+// An optional need (social life…) is only in play in a game that turned it on (cfg.optNeeds).
+export const optionalNeeds = (w) => w.statuses.filter(s => s.optional && !s.off && !s.rpg);
+export const optNeedOn = (g, id) => !!g?.cfg?.optNeeds?.includes(id);
 export const activeStatuses = (w, g) => (isScenario(w) && g !== undefined
-    ? (homeNeedsOn(g) ? w.statuses.filter(s => !s.off && HOME_NEEDS.includes(s.id)) : [])
-    : w.statuses.filter(s => !s.off && !(s.rpg && gameMode(w) === 'lifesim') && (s.rpg || systemOn(w, 'needs'))));
+    ? (homeNeedsOn(g) ? w.statuses.filter(s => !s.off && (s.optional ? optNeedOn(g, s.id) : HOME_NEEDS.includes(s.id))) : [])
+    : w.statuses.filter(s => !s.off && !(s.rpg && gameMode(w) === 'lifesim') && (s.rpg || systemOn(w, 'needs')) && (!s.optional || optNeedOn(g, s.id))));
 export const WORLD_TAGS = [
     { id: 'lifesim', name: 'Life-Sim', desc: 'can be played as a life: needs, work, home, people.' },
     { id: 'rpg', name: 'RPG', desc: 'can be played as an adventure: a class, checks, fights and quests.' },

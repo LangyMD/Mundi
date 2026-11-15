@@ -15,7 +15,7 @@ import { state, notify, esc, game, toast, ROOT_ID, saveGame, UI } from '../core/
 import { styleOf, styleNote } from '../sim/style.js';
 import { findAction, findRequest, requestTarget, willingLine } from '../sim/intent.js';
 import { expandPrompt, cleanExpansion, EXPAND_SYSTEM } from '../sim/expand.js';
-import { actionsHere, money } from '../sim/needs.js';
+import { actionsHere, money, socialContact } from '../sim/needs.js';
 import { shape, modesFor, modeFor, inputStyleOf } from '../core/compose.js';
 import { getWorld, worldFile, systemOn } from '../core/world.js';
 import { chat, speakerOf, thumb, sendText, replyAs, regenerate, continueLast, impersonate, stop, swipeLeft, swipeRight, editMessage, deleteMessageAt, expressionOf, fetchSprites, saveChat, me, currentCharacter, charOf, characters, ctx, addUserLine, narratorLine, personaName, quiet, lorebooks, chatLores, setChatLores, scenarioOpen, scenarioCast, scenarioTitle, addToScenario, removeFromScenario, setChatBackground, newScenarioChat, persona, personas, personaThumb, usePersona, setForReply, WILL_KEY, } from '../st/bridge.js';
@@ -565,6 +565,8 @@ Object.assign(ACT, {
                 for (const r of hearers)
                     if (r.met)
                         addBond(g, r.avatar, 3);
+            if (!harsh && hearers.length)
+                socialContact(g, w, 3); // company, strangers too (the social need, when on)
             lockScene(g, w);
             saveGame();
         }

@@ -1,13 +1,16 @@
 // Relationships, meet-ups and text messages. Bond grows when you talk to someone (in a scene or by phone);
 // a meet-up puts her at a place you chose for two hours; at a high bond you can ask her to be your partner.
 import { notify, nowAbs, cfg, type Save, type Resident, UI } from '../core/store.js';
-import { type WorldDef, messageKind, aiVoice, isScenario, getWorld } from '../core/world.js';
+import { type WorldDef, messageKind, aiVoice, isScenario, getWorld, systemOn } from '../core/world.js';
 import { difficultyOf } from './bills.js';
 import { charOf, personaName, sayLine, translateTo } from '../st/bridge.js';
 import { whereNow } from './people.js';
 import { aiLangName } from '../core/i18n.js';
 import { hm, weekday } from './time.js';
 import { placeOf } from './places.js';
+import { socialContact } from './needs.js';
+import { decayMult, gainMult } from './modifiers.js';
+import { onDay } from './hooks.js';
 
 export interface Text { me: boolean; text: string; at: number }
 // A plan with you: she goes to `place` from `from` to `to`. "come" plans are "come over to where I am now".
@@ -23,6 +26,7 @@ export interface Social {
     unread: Record<string, number>;
     appts: Appointment[];
     with: Companion[];                       // people who came along with you
+    seen?: Record<string, number>;           // the last day you were in touch with each person
 }
 export function social(g: Save): Social {
     const s = ((g as any).social ??= {}) as Social;
@@ -49,8 +53,15 @@ export function bump(g: Save, avatar: string, delta: number) {
 export function addBond(g: Save, avatar: string, amount: number) {
     const s = social(g);
     // Home: the difficulty is how fast relationships grow (gains only; losses stay as they are)
-    const mult = isScenario(getWorld(g.world)) ? difficultyOf(g).bond : 1;
-    if (amount > 0 && mult !== 1) amount = Math.max(1, Math.round(amount * mult));
+    const w = getWorld(g.world);
+    const mult = isScenario(w) ? difficultyOf(g).bond : 1;
+    if (amount > 0) {
+        (s.seen ??= {})[avatar] = g.day;
+        socialContact(g, w, amount * 2);   // company counts even when the day's bond is already full
+        // who you are (charming, shy…) changes how fast people warm to you
+        const who = w ? gainMult(g, w, 'bond') : 1;
+        if (mult * who !== 1) amount = Math.max(1, Math.round(amount * mult * who));
+    }
     const key = `${avatar}|${g.day}`;
     const room = Math.max(0, Math.round((cfg(g).bondCap ?? 15) * mult) - (s.today[key] ?? 0));
     const add = Math.min(room, amount);
@@ -68,6 +79,24 @@ export function loseBond(g: Save, avatar: string, amount: number) {
     s.bond[avatar] = Math.max(0, before - Math.abs(amount));
     return before - s.bond[avatar];
 }
+
+// Friendships fade without contact, when this game asks for it (This world → Rules; off by default): after a week
+// with no word, a point a day, never below an acquaintance; partners keep theirs. Traits change the pace (kind: slower).
+export const FADE_AFTER = 7, FADE_FLOOR = 10;
+export function bondFade(g: Save, w: WorldDef): string[] {
+    if (!cfg(g).bondFade || !systemOn(w, 'social')) return [];
+    const s = social(g); const seen = (s.seen ??= {});
+    const pace = decayMult(g, w, 'bond');
+    const lose = pace >= 1.5 ? 2 : 1, every = pace < 0.9 ? 2 : 1;   // whole points only: slower means every other day
+    for (const [a, b] of Object.entries(s.bond)) {
+        if (!g.cast[a] || s.partner.includes(a) || b <= FADE_FLOOR) continue;
+        seen[a] ??= g.day;   // (a save from before this: the count starts today)
+        const away = g.day - seen[a] - FADE_AFTER;
+        if (away > 0 && away % every === 0) s.bond[a] = Math.max(FADE_FLOOR, b - lose);
+    }
+    return [];
+}
+onDay.push(bondFade);
 
 /* ---------- meet-ups ---------- */
 

@@ -139,7 +139,8 @@
    "hunger",
    "thirst",
    "mood",
-   "hygiene"
+   "hygiene",
+   "social"
   ],
   "actions": [
    "stew",
@@ -372,7 +373,8 @@
    "hunger",
    "thirst",
    "mood",
-   "hygiene"
+   "hygiene",
+   "social"
   ],
   "actions": [
    "coffee",
@@ -621,7 +623,8 @@
    "hunger",
    "thirst",
    "mood",
-   "hygiene"
+   "hygiene",
+   "social"
   ],
   "actions": [
    "coffee",
@@ -837,7 +840,8 @@
    "hunger",
    "thirst",
    "mood",
-   "hygiene"
+   "hygiene",
+   "social"
   ],
   "actions": [
    "coffee",
@@ -965,7 +969,8 @@
    "hunger",
    "thirst",
    "mood",
-   "hygiene"
+   "hygiene",
+   "social"
   ],
   "actions": [
    "snack",

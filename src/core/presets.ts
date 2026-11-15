@@ -1,7 +1,7 @@
 // Style presets: what a world of each style starts with, as data. The engine reads only the world; a style is just
 // the set of values a new world (or an older world that lacks a field) begins with. Everything here can be changed
 // per world in the world creator.
-import type { WorldDef, ActionDef, Crisis, HabitDef, FestivalDef, PetDef, FactionDef, RealmDef, InstitutionDef, GoodDef, CropDef, BusinessDef, RecipeDef, TowerDef, BladeDef } from './world.js';
+import type { WorldDef, ActionDef, StatusDef, Crisis, HabitDef, FestivalDef, PetDef, FactionDef, RealmDef, InstitutionDef, GoodDef, CropDef, BusinessDef, RecipeDef, TowerDef, BladeDef } from './world.js';
 import { MEDIEVAL_RPG, MODERN_RPG, type RpgDef } from './rpgdef.js';
 
 export interface ShopItem { id: string; name: string; desc: string; icon: string; price: number;
@@ -129,7 +129,7 @@ export const PRESETS: Record<string, Preset> = {
             { id: 'x-workout', name: 'Workout', label: 'Work out', icon: '🏋️', cost: 15, minutes: 90, tags: ['sport'], effects: { energy: -25, hygiene: -30, mood: 4, thirst: -10 },
                 roll: roll(9, ['Athletic', 'Strong', 'Sports'], 'A great workout.', { mood: 6 }, null, 'A sloppy workout; your heart was not in it.', { mood: -2 }) },
             { id: 'x-run', name: 'Run', label: 'Go for a run', icon: '👟', cost: 0, minutes: 40, tags: ['leisure'], notTags: ['sport', 'indoor'], effects: { energy: -15, hygiene: -20, mood: 6, thirst: -10 } },
-            { id: 'x-drinks', name: 'Drinks', label: 'Have a drink at the bar', icon: '🍸', cost: 12, minutes: 45, tags: ['bar'], effects: { mood: 10, thirst: 10, energy: -3 } },
+            { id: 'x-drinks', name: 'Drinks', label: 'Have a drink at the bar', icon: '🍸', cost: 12, minutes: 45, tags: ['bar'], effects: { mood: 10, thirst: 10, energy: -3, social: 15 } },
         ] as ActionDef[],
         breakables: [
             { id: 'shower', name: 'the shower', blocks: ['shower', 'basin'] },
@@ -265,6 +265,11 @@ export const PRESETS: Record<string, Preset> = {
         repairCost: 8,
     },
 };
+// Needs a game can add (off unless turned on for that game).
+export const OPTIONAL_NEEDS: StatusDef[] = [
+    { id: 'social', name: 'Social', icon: '💬', color: '#ff7eb6', start: 70, max: 100, hud: true, optional: true, decay: { amount: 3, everyMinutes: 60, awakeOnly: true },
+        zero: { text: 'You have been on your own for too long: the loneliness weighs on your mood.', drain: { status: 'mood', amount: 2, everyMinutes: 60 } } },
+];
 const styleId = (w: WorldDef) => (w.style ?? ((w.kind || '').toLowerCase().includes('modern') ? 'modern' : (w.kind || 'modern').toLowerCase()));
 export const presetOf = (w: WorldDef): Preset => PRESETS[styleId(w)] ?? PRESETS.modern;
 
@@ -349,6 +354,15 @@ export function upgradeWorld(w: WorldDef): WorldDef {
             s.zero = { ...(s.zero ?? {}), crisis: structuredClone(c) };
         }
         (w as any).presetCrises = true;
+    }
+    // optional needs (a social life): an older world gets them once, off until a game turns them on
+    if (!(w as any).presetNeeds2) {
+        if (w.statuses?.length) for (const s of OPTIONAL_NEEDS) if (!w.statuses.some(x => x.id === s.id)) {
+            const n = structuredClone(s);
+            if (n.zero?.drain && !w.statuses.some(x => x.id === n.zero!.drain!.status)) delete n.zero.drain;
+            w.statuses.push(n);
+        }
+        (w as any).presetNeeds2 = true;
     }
     return w;
 }

@@ -14,7 +14,7 @@ import { payOf, lockedOut } from '../sim/bills.js';
 import { needWord } from '../sim/life.js';
 import { lifeOverlays, soloOf } from './lifeui.js';
 import { game, esc, state, UI, saveSettings, notify, nowAbs, clockMode, onPhone, toast, saveGame } from '../core/store.js';
-import { getWorld, activeStatuses, systemOn, deviceLook, offScreenWork, isScenario, HOME_NEEDS, homeNeedsOn } from '../core/world.js';
+import { getWorld, activeStatuses, systemOn, deviceLook, offScreenWork, isScenario, homeNeedsOn } from '../core/world.js';
 import { levelChip } from './rpgui.js';
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 import { personaThumb, personaName, thumb, setPrompt } from '../st/bridge.js';
@@ -279,7 +279,7 @@ function exitRoom(g, w) {
 }
 // Home with needs on: their icons under the clock, each a ring that empties as it drops (the word on hover).
 function clockNeeds(g, w) {
-    const list = activeStatuses(w, g).filter(s => HOME_NEEDS.includes(s.id));
+    const list = activeStatuses(w, g);
     return `<div class="mh-clock-needs" data-act="needs-info">${list.map(s => { const v = Math.round(g.player.stats[s.id] ?? s.start); return `<span class="mh-cneed ${v <= 20 ? 'is-low' : ''}" title="${esc(`${s.name}: ${needWord(s, v)}`)}" style="--c:${esc(s.color)};--v:${Math.max(0, Math.min(100, v))}">${needIcon(s)}</span>`; }).join('')}</div>`;
 }
 Object.assign(ACT, { 'needs-info': () => { } });

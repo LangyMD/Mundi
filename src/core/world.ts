@@ -61,6 +61,8 @@ export interface StatusDef {
     id: string; name: string; icon: string; color: string; start: number; max: number; hud?: boolean;
     /** `rpg`: only in the RPG game mode (health…); `off`: turned off in a Custom world. */
     rpg?: boolean; off?: boolean;
+    /** An optional need (social life…): out of the game unless turned on for that game (This world → Rules / Needs). */
+    optional?: boolean;
     decay?: { amount: number; everyMinutes: number; awakeOnly?: boolean };
     zero?: {
         text?: string; place?: string; cost?: number; restore?: number;
@@ -73,6 +75,10 @@ export interface StatusDef {
 // comes back to, your mood, how much the people who saw it think less of you, and the fact they remember
 // ({u} you, {0} the place).
 export interface Crisis { after: number; text: string; place?: string; cost?: number; restore?: number; mood?: number; shame?: number; seen?: string }
+// A trait, a habit or a hobby level that changes how fast something drops or fills. `target`: a need's id, 'bond' or
+// 'romance'. `decay`: × how fast it drops by itself; `gain`: × what fills it (`actions`: only from these actions).
+// Everything that applies is multiplied together and kept between ×0.5 and ×2.
+export interface ModifierDef { trait?: string; hobby?: string; level?: number; target: string; decay?: number; gain?: number; actions?: string[] }
 export interface ActionDef {
     id: string; name: string; label: string; icon?: string; cost: number; minutes: number;
     tags?: string[]; place?: string; home?: boolean; anywhere?: boolean;
@@ -223,6 +229,8 @@ export interface WorldDef {
     cityEvents?: CityEventDef[];
     /** Hobbies that level up with practice (guitar, painting…): a bonus on their rolls, more money, jobs that ask for them. */
     hobbies?: HobbyDef[];
+    /** What traits, habits and hobby levels do to needs and relationships (none given: Mundi's usual table, sim/modifiers.ts). */
+    modifiers?: ModifierDef[];
     /** Pets and familiars you can buy and keep. */
     pets?: PetDef[];
     /** Crafting recipes (ingredients → a good or gem; a d20 check; legendary ones are named by you). */
@@ -326,9 +334,12 @@ export const gameMode = (w: WorldDef | null | undefined): GameMode => {
 // (no energy, and no health at stake). `g` is the game, when the caller has it.
 export const HOME_NEEDS = ['hunger', 'thirst', 'mood', 'hygiene'];
 export const homeNeedsOn = (g: unknown) => !!(g as any)?.cfg?.needs;
+// An optional need (social life…) is only in play in a game that turned it on (cfg.optNeeds).
+export const optionalNeeds = (w: WorldDef) => w.statuses.filter(s => s.optional && !s.off && !s.rpg);
+export const optNeedOn = (g: unknown, id: string) => !!(g as any)?.cfg?.optNeeds?.includes(id);
 export const activeStatuses = (w: WorldDef, g?: unknown) => (isScenario(w) && g !== undefined
-    ? (homeNeedsOn(g) ? w.statuses.filter(s => !s.off && HOME_NEEDS.includes(s.id)) : [])
-    : w.statuses.filter(s => !s.off && !(s.rpg && gameMode(w) === 'lifesim') && (s.rpg || systemOn(w, 'needs'))));
+    ? (homeNeedsOn(g) ? w.statuses.filter(s => !s.off && (s.optional ? optNeedOn(g, s.id) : HOME_NEEDS.includes(s.id))) : [])
+    : w.statuses.filter(s => !s.off && !(s.rpg && gameMode(w) === 'lifesim') && (s.rpg || systemOn(w, 'needs')) && (!s.optional || optNeedOn(g, s.id))));
 
 // The game's systems. Each one can be turned off in a world (features.<id> = false): then it is gone from the HUD,
 // the phone or journal, the AI's prompt, and the engine stops running it. What the save holds for it is kept, so

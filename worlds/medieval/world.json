@@ -2121,6 +2121,29 @@
      "seen": "People at {0} kept away from {u}, who badly needed a wash."
     }
    }
+  },
+  {
+   "id": "social",
+   "name": "Social",
+   "icon": "💬",
+   "color": "#ff7eb6",
+   "start": 70,
+   "max": 100,
+   "hud": true,
+   "optional": true,
+   "decay": {
+    "amount": 3,
+    "everyMinutes": 60,
+    "awakeOnly": true
+   },
+   "zero": {
+    "text": "You have been on your own for too long: the loneliness weighs on your mood.",
+    "drain": {
+     "status": "mood",
+     "amount": 2,
+     "everyMinutes": 60
+    }
+   }
   }
  ],
  "actions": [
@@ -2164,7 +2187,8 @@
    "effects": {
     "thirst": 30,
     "mood": 8,
-    "energy": -3
+    "energy": -3,
+    "social": 10
    }
   },
   {

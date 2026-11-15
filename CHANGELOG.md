@@ -2,6 +2,16 @@
 
 ## Unreleased (this fork)
 
+- **Who you are changes your needs:** traits, habits that became traits and hobby levels now change how fast needs
+  drop and how much fills them (a cheerful person keeps their mood longer, an athletic one has more energy, a good
+  cook gets more from a home meal, a film lover enjoys the cinema more), and how fast friendships and romance grow
+  (charming, kind, shy, romantic). This world → World → Needs lists what your traits are doing. Always between half
+  and double; a custom world can bring its own table (`modifiers` in its JSON).
+- **A social need, if you want it:** This world → World → Needs → Extra needs (in a Home: the Needs tab). Off by
+  default, chosen per game. It drops while you are awake; talking to people, texting, running into friends and a
+  drink out fill it; left empty, loneliness wears your mood down.
+- **Friendships can fade:** the same place, off by default. After a week with no contact, a friendship loses a point
+  a day, never below an acquaintance; partners keep theirs.
 - **Free text in the message box:** Settings → Game → Message box. Keep the Say / Do / Story / See buttons, add a
   Free mode beside them, or hide the buttons and write freely. Free text is sent exactly as written, so one line can
   mix what you say and do. In free text, a line that starts with `>` steers the story and one that starts with `?`

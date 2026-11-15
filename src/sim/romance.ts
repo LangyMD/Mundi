@@ -8,6 +8,7 @@ import { approvalOf, approve } from './living.js';
 import { note } from './facts.js';
 import { romanceBlocked, canTryForBaby } from './family.js';
 import { getWorld, systemOn, type SystemId } from '../core/world.js';
+import { gainMult } from './modifiers.js';
 // Is a system on in this save's world (romance, children)?
 export const sysOn = (g: Save, id: SystemId) => systemOn(getWorld(g.world), id);
 
@@ -19,7 +20,8 @@ export function romOf(g: Save, avatar: string): Rom {
     return r;
 }
 export const romValue = (g: Save, avatar: string) => romOf(g, avatar).value;
-export function addRomance(g: Save, avatar: string, delta: number) { const r = romOf(g, avatar); r.value = Math.max(0, Math.min(100, r.value + delta)); }
+// (what you gain counts for more with a romantic; what you lose stays as it is)
+export function addRomance(g: Save, avatar: string, delta: number) { const r = romOf(g, avatar); const w = getWorld(g.world); if (delta > 0 && w) delta *= gainMult(g, w, 'romance'); r.value = Math.max(0, Math.min(100, Math.round(r.value + delta))); }
 // keeps the older "partner" list (used by plans, the phone…) in step with the romance status
 function syncPartner(g: Save, avatar: string) {
     const p = social(g).partner; const on = romOf(g, avatar).status !== 'none'; const i = p.indexOf(avatar);
