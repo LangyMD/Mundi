@@ -35,6 +35,7 @@ import { breakNow } from '../sim/daylife.js';
 import { social, bondOf, bondLabel, isPartner, sendText, PARTNER_BOND } from '../sim/social.js';
 import { planForm, calendarApp, plansBadge } from './plans.js';
 import { photosApp, photoCount, PH } from './photosui.js';
+import { personTraitsHtml } from './traitsui.js';
 import { hobbyNeed, hobbyFits } from '../sim/hobbies.js';
 import { jobDef, shiftsToPromote, likes, traitsOf, hire, quitJob, ledger, freeSpots, moveTo, rankOf, nextRankOf, pendingBranch, choosePath, canRefer, askReferral, referralFor, askedThisWeek } from '../sim/work.js';
 import { icon } from './icons.js';
@@ -281,6 +282,7 @@ function personApp(g, w) {
     return `${head(esc(contactName(g, r)), 'people')}<div class="mu-ph-body">
         <div class="mu-ph-profile"><img src="${esc(thumb(r.avatar))}" alt=""><b data-notr>${esc(r.name)}</b>${nicks(g)[r.avatar] ? `<small data-notr>${esc(T('inYourDevice', nicks(g)[r.avatar]))}</small>` : ''}<small>${bondLabel(g, r.avatar)}</small>${relBar(r.avatar)}<small>${approvalWord(approvalOf(g, r.avatar))}</small>${feelingsHtml(g, r.avatar)}</div>
         <button data-act="ph-thread" data-who="${esc(r.avatar)}">${icon(LETTERS ? 'send' : 'chat')}<span>${T('writeMessage')}</span></button>
+        ${personTraitsHtml(g, w, r.avatar)}
         ${photoCount(g, r.avatar) ? `<button data-act="ph-photos" data-who="${esc(r.avatar)}">${icon('image')}<span>Photos (${photoCount(g, r.avatar)})</span></button>` : ''}
         ${featureOn(w, 'plans') ? planForm(g, w, r.avatar) : ''}
         ${partner ? '<p class="mu-ph-love">You are together.</p>' : b >= PARTNER_BOND && !romanceBlocked(g, P.who) && systemOn(w, 'romance') ? '<button data-act="ph-partner">Ask to be together</button>' : ''}

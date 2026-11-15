@@ -22,6 +22,7 @@ import { pins, placeOf, travelMinutes, playerHomeId, isOuting, outingName } from
 import { planOn, floorsOn, planTarget, unplaced, floorOf } from '../sim/plan.js';
 import { presentAt, whereNow } from '../sim/people.js';
 import { cameAndWent } from '../sim/intent.js';
+import { togetherDid } from '../sim/persontraits.js';
 import { narrate, arriveLevel, actionVoice } from './narrator.js';
 import { writeDiary, diaryOn, markDayStart } from '../sim/diary.js';
 import { openWork, diaryWaiting, diaryReady } from './relui.js';
@@ -677,6 +678,8 @@ export async function doAction(id, say = false) {
     afterAction(g, w, a, roll ? roll.grade.includes('success') : null).forEach(m => toast(m, 'success'));
     afterEvent(g, w, a);
     practice(g, w, a, roll ? roll.grade.includes('success') : null, roll?.grade === 'critical-success').forEach(m => toast(m, 'success'));
+    // done with the people here, often enough, it rubs off on them (sim/persontraits.ts)
+    togetherDid(g, w, a.label, before.filter(r => r.met)).forEach(m => toast(m, 'info'));
     runPlans();
     saveGame();
     await syncScene();

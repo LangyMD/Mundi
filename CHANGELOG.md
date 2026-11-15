@@ -2,6 +2,15 @@
 
 ## Unreleased (this fork)
 
+- **Traits for people:** the people of the world (and you) can now have traits: lasting ones (party animal,
+  athletic, bookworm, foodie, homebody, outdoorsy) and states that pass by themselves (hurt, sick, heartbroken,
+  exhausted). A job counts as a trait by itself. Doing a thing with someone on five different days brings its trait
+  out in them (working out together → athletic); stop for two weeks and it fades. Add or remove traits by hand, or
+  make your own, on their page in People. The AI is told (AI context → Who they are lately). A world file can list
+  its own `traits` and a `traitPriority` order.
+- **Picture sets for traits:** a character can have extra picture folders for a trait or a combination, named
+  `<traits>--<outfit folder>` (`hurt--everyday`, `hurt.party-animal--everyday`, `career-nurse--career`). The set
+  covering the most of their current traits shows; an outfit the set lacks falls back to the usual pictures.
 - **Photos on the phone:** a new Photos app gathers the pictures of this game (those in the chat and those posted
   on Chirp) by person. Who is in a picture is guessed from who sent it; open a picture to change who is in it, and
   that is kept in the save. Each person's page in People links to their photos.

@@ -3947,6 +3947,11 @@ body.mundi-open #completion_prompt_manager_popup {
 #mundi-root .mu-photo-tags { display: grid; gap: 6px; }
 #mundi-root .mu-photo-tags .mu-chip img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; margin-right: 4px; vertical-align: -4px; }
 #mundi-root .mu-photo-tags .mu-row { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Someone's traits on their page in People */
+#mundi-root .mu-ptraits { display: grid; gap: 6px; }
+#mundi-root .mu-ptraits .mu-row { display: flex; gap: 6px; flex-wrap: wrap; }
+#mundi-root .mu-ptraits select, #mundi-root .mu-ptraits input { flex: 1; min-width: 0; }
+#mundi-root .mu-ptraits .mu-chip .mu-ibtn { width: 18px; height: 18px; margin-left: 4px; padding: 0; }
 /* The "Advanced" switch at the top of This world / This Home (and Needs): a switch in a pill, easy to see. */
 #mundi-root .mu-switch-row { padding: 6px 8px 6px 14px; border-radius: 999px; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .5); box-shadow: 0 2px 8px rgba(0, 0, 0, .18); transition: background .2s; }
 #mundi-root .mu-switch-row:hover { background: rgba(255, 255, 255, .3); }

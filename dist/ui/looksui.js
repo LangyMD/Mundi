@@ -1,6 +1,8 @@
 // Clothes at work (sim/looks.ts has the rules): the facts of the moment for each person, the pictures of the look
 // someone wears now, and the words for each look read from the card generator's `outfits.json`.
 import { game, notify, nowAbs } from '../core/store.js';
+import { getWorld } from '../core/world.js';
+import { activeTraits, pickSets, guessSets, setFolder, setTraits, traitDef } from '../sim/persontraits.js';
 import { fetchSprites, outfitOf, baseSpriteFolder } from '../st/bridge.js';
 import { placeOf, playerHomeId, isHome } from '../sim/places.js';
 import { presentAt, routineStep } from '../sim/people.js';
@@ -34,7 +36,7 @@ export function dressScene(g, w) {
 const cache = new Map(); // "avatar|folder" → its pictures ([]: none)
 export const forgetLookSprites = (avatar) => { for (const k of [...cache.keys()])
     if (k.startsWith(`${avatar}|`))
-        cache.delete(k); delete WARDROBE[avatar]; asked.delete(avatar); };
+        cache.delete(k); delete WARDROBE[avatar]; delete SETS[avatar]; asked.delete(avatar); };
 async function folder(avatar, f) {
     const k = `${avatar}|${f}`;
     if (!cache.has(k))
@@ -46,8 +48,21 @@ async function folder(avatar, f) {
 export async function lookSprites(avatar) {
     const g = game();
     if (g && looks(g)[avatar] && !outfitOf(avatar) && !avatar.startsWith('__tut:')) {
-        void loadWardrobe(avatar);
-        for (const f of folderChain(lookOf(g, avatar))) {
+        await loadWardrobe(avatar);
+        const look = lookOf(g, avatar), chain = folderChain(look);
+        // a set of pictures for who they are lately (a trait, or several together) comes first; an outfit the set
+        // does not have falls back to their usual pictures
+        const w = getWorld(g.world), active = activeTraits(g, avatar);
+        if (active.length) {
+            const known = SETS[avatar];
+            const order = pickSets(known?.sets ?? guessSets(active), active, known?.priority ?? [], (w?.traitPriority ?? []), id => traitDef(g, w, id).kind === 'state');
+            for (const s of order) {
+                const l = await folder(avatar, setFolder(s.id, chain[0]));
+                if (l.length)
+                    return l;
+            }
+        }
+        for (const f of chain) {
             const l = await folder(avatar, f);
             if (l.length)
                 return l;
@@ -56,7 +71,14 @@ export async function lookSprites(avatar) {
     return fetchSprites(avatar);
 }
 /* ---------- the words for each look ---------- */
-const asked = new Set();
+const asked = new Map();
+// A character's own picture sets, from `outfits.json`: { sets: [{ id, traits }], priority: [trait ids] }.
+const SETS = {};
+export function readSets(json) {
+    const list = Array.isArray(json?.sets) ? json.sets : [];
+    const sets = list.map((e) => { const id = String(e?.id ?? '').trim().toLowerCase(); const traits = Array.isArray(e?.traits) && e.traits.length ? e.traits.map((t) => String(t).toLowerCase()) : setTraits(id); return { id, traits }; }).filter((s) => s.id && s.traits.length);
+    return { sets, priority: Array.isArray(json?.priority) ? json.priority.map((t) => String(t).toLowerCase()) : [] };
+}
 // `outfits.json` beside the pictures: { outfits: [{ folder, category, layer, desc }] } (or the list alone).
 export function readWardrobe(json) {
     const list = Array.isArray(json) ? json : Array.isArray(json?.outfits) ? json.outfits : [];
@@ -68,21 +90,26 @@ export function readWardrobe(json) {
     }
     return out;
 }
-export async function loadWardrobe(avatar) {
-    if (asked.has(avatar))
-        return;
-    asked.add(avatar);
-    try {
-        const r = await fetch(`/characters/${encodeURIComponent(baseSpriteFolder(avatar))}/outfits.json`);
-        if (!r.ok)
-            return;
-        const w = readWardrobe(await r.json());
-        if (Object.keys(w).length) {
-            WARDROBE[avatar] = w;
-            const { refreshPrompt } = await import('../sim/prompt.js');
-            refreshPrompt();
-            notify();
-        }
-    }
-    catch { /* no file: the look is told in general words */ }
+export function loadWardrobe(avatar) {
+    if (!asked.has(avatar))
+        asked.set(avatar, (async () => {
+            try {
+                const r = await fetch(`/characters/${encodeURIComponent(baseSpriteFolder(avatar))}/outfits.json`);
+                if (!r.ok)
+                    return;
+                const json = await r.json();
+                const sets = readSets(json);
+                if (sets.sets.length)
+                    SETS[avatar] = sets;
+                const w = readWardrobe(json);
+                if (Object.keys(w).length) {
+                    WARDROBE[avatar] = w;
+                    const { refreshPrompt } = await import('../sim/prompt.js');
+                    refreshPrompt();
+                    notify();
+                }
+            }
+            catch { /* no file: the look is told in general words */ }
+        })());
+    return asked.get(avatar);
 }

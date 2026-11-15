@@ -441,6 +441,10 @@ export function syncScene() {
         }
         // what everyone wears follows the moment (sleepwear at night, work clothes on shift…), unless set by hand
         {
+            const { fadeTraits } = await import('./persontraits.js');
+            fadeTraits(g, w);
+        } // what you stopped doing together fades, a day at a time
+        {
             const { dressScene, loadWardrobe } = await import('../ui/looksui.js');
             dressScene(g, w);
             here.forEach(r => void loadWardrobe(r.avatar));
