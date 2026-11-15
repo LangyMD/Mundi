@@ -2,6 +2,9 @@
 
 ## Unreleased (this fork)
 
+- **Floor plan button:** in a place with rooms, "Floor plan" is now a button beside "Map", and the things to do no
+  longer list a row for every room. You go to a room from the plan. A room drawn on no floor still gets a row,
+  since the plan cannot reach it.
 - **Rooms inside homes:** a world file can give homes rooms too (`homes.plans`, named per address by
   `homes.zones[].interiors`, or `interior` on a kind of home). Your home and other people's then have a floor plan
   like a building. Bedrooms are handed to the household (a character can name theirs; a couple's room holds two; a
