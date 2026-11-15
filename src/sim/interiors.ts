@@ -52,7 +52,8 @@ function homePlan(w: WorldDef, h: HomeRef): (Interior & { templates?: any[] }) |
     if (!zone) return null;
     const spot = (zone.spots ?? []).findIndex((s: number[]) => s[0] === h.x && s[1] === h.y);
     const named = zone.interiors?.[String(spot)] ?? zone.interiors?.[String(Math.max(0, spot))];
-    const plan = (named && homes.plans?.[named]) || homes.kinds?.[h.kind ?? zone.kind]?.interior;
+    const own = homes.kinds?.[h.kind ?? zone.kind]?.interior;   // (its own rooms, or the id of a plan)
+    const plan = (named && homes.plans?.[named]) || (typeof own === 'string' ? homes.plans?.[own] : own);
     return plan && Array.isArray(plan.rooms) && plan.rooms.length && Array.isArray(plan.templates) ? plan : null;
 }
 // Who lives in a home (you included, as '__you'), in the order the world has them.

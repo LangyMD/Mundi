@@ -25,6 +25,9 @@ export interface NarrFacts {
 
 const list = (a: string[]) => a.length <= 1 ? (a[0] ?? '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
 const are = (a: string[]) => (a.length > 1 ? 'are' : 'is');
+// Other people around who are nobody in particular: the place is not empty even when nobody you know is there.
+export const crowded = (crowd?: string) => !!crowd && crowd !== 'empty';
+const strangers = (crowd?: string) => crowd === 'packed' ? 'the place is packed with strangers' : crowd === 'busy' ? 'the place is busy with strangers' : crowd === 'a few people' ? 'a few strangers are around' : 'a stranger or two is around';
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 const span = (m?: number) => !m ? '' : m < 60 ? `${m} minutes` : m % 60 === 0 ? `${m / 60} hour${m === 60 ? '' : 's'}` : `${Math.floor(m / 60)} h ${m % 60} min`;
 
@@ -34,7 +37,7 @@ export function narrLevel(v: unknown, fallback: NarrLevel): NarrLevel {
 
 // The line without the AI: plain facts, in the second person. Also what is posted when the AI gives nothing.
 export function engineLine(f: NarrFacts): string {
-    const who = f.people.length ? `${list(f.people)} ${are(f.people)} here.` : 'Nobody else is here.';
+    const who = f.people.length ? `${list(f.people)} ${are(f.people)} here.` : crowded(f.crowd) && !f.closed ? 'Nobody you know is here.' : 'Nobody else is here.';
     if (f.kind === 'arrive') {
         const busy = f.closed ? 'It is closed at this hour.' : f.crowd && f.crowd !== 'a few people' ? `It is ${f.crowd}.` : f.crowd ? 'A few people are around.' : '';
         return [`You arrive at ${f.place}.`, busy, who].filter(Boolean).join(' ');
@@ -47,7 +50,7 @@ export function engineLine(f: NarrFacts): string {
         came.length ? `Meanwhile ${list(came)} came in.` : '',
         left.length ? `${list(left)} left${came.length ? '' : ' meanwhile'}.` : '',
         (came.length || left.length) && others.length ? `${list(others)} ${are(others)} still here.` : '',
-        (came.length || left.length) && !f.people.length ? 'You are alone now.' : '',
+        (came.length || left.length) && !f.people.length ? (crowded(f.crowd) ? 'Nobody you know is here now.' : 'You are alone now.') : '',
     ].filter(Boolean).join(' ');
 }
 
@@ -56,16 +59,18 @@ export const NARRATE_SYSTEM = 'You are the narrator of a life simulation. You de
 // sentence ('' when off), `lang`: the language note ('' for English).
 export function narratePrompt(f: NarrFacts, recent = '', style = '', lang = ''): string {
     const came = f.came ?? [], left = f.left ?? [];
+    const busy = crowded(f.crowd) && !f.closed;
     const facts = [
         `Place: ${f.place}${f.desc ? ` — ${f.desc.replace(/\s+/g, ' ').slice(0, 400)}` : ''}${f.closed ? ' (closed at this hour)' : ''}`,
         `Time: ${f.time}.${f.weather ? ` Weather: ${f.weather}.` : ''}${f.crowd ? ` How busy: ${f.crowd}.` : ''}`,
-        f.people.length ? `Here now with ${f.me}: ${list(f.people)}. Nobody else.` : `${f.me} is alone here.`,
+        f.people.length ? `Here now with ${f.me}: ${list(f.people)}.${busy ? ` Around them, ${strangers(f.crowd)}: unnamed people in the background.` : ' Nobody else.'}`
+            : busy ? `Nobody ${f.me} knows is here, but ${f.me} is not alone: ${strangers(f.crowd)}, unnamed people going about their own business.` : `${f.me} is alone here.`,
         ...(f.why ?? []),
     ];
     let task: string;
     if (f.kind === 'arrive') {
         task = `${f.me} has just arrived at ${f.place}. Narrate the arrival in 2 to 3 sentences, in the second person ("you"): what the place is like at this hour` +
-            `${f.people.length ? `, and that ${list(f.people)} ${are(f.people)} here, each only glimpsed in passing (where they are, what they seem busy with)` : ', and that nobody else is around'}.`;
+            `${f.people.length ? `, and that ${list(f.people)} ${are(f.people)} here, each only glimpsed in passing (where they are, what they seem busy with)` : busy ? `, with the other people there as background (a crowd, staff, passers-by: never named, never speaking to ${f.me}); nobody ${f.me} knows is among them` : ', and that nobody else is around'}.`;
     } else {
         facts.push(`What ${f.me} just did: ${lower(f.action ?? '')}${f.minutes ? `, for ${span(f.minutes)}` : ''}.${f.result ? ` How it went (already decided, do not change it): ${f.result}` : ''}`);
         if (came.length) facts.push(`While it lasted, ${list(came)} came in and ${are(came)} here now.`);
@@ -73,9 +78,9 @@ export function narratePrompt(f: NarrFacts, recent = '', style = '', lang = ''):
         task = `Narrate how it goes in 2 to 4 sentences, in the second person ("you"), ending in the present moment.` +
             (came.length ? ` The narration must show ${list(came)} arriving partway through, seen from ${f.me}'s side.` : '') +
             (left.length ? ` It must show ${list(left)} leaving partway through.` : '') +
-            (!f.people.length ? ` ${f.me} ends up alone: nobody appears.` : '');
+            (!f.people.length ? (busy ? ` Nobody ${f.me} knows appears; the strangers around stay in the background.` : ` ${f.me} ends up alone: nobody appears.`) : '');
     }
-    const rules = `Use only the facts above: invent no other person, event or object that matters. Do not write anyone's spoken words, and do not write what ${f.me} says, decides or does next. ` +
+    const rules = `Use only the facts above: invent no other named person, event or object that matters. Do not write anyone's spoken words, and do not write what ${f.me} says, decides or does next. ` +
         `${f.people.length ? `${list(f.people)} may be seen or heard, but they do not speak or address ${f.me} yet: they answer for themselves afterwards. ` : ''}` +
         `Plain prose, no title, no list.${style ? ` ${style}` : ''}${lang ? ` ${lang}` : ''}`;
     return [facts.join('\n'), recent ? `The last lines of the story:\n${recent}` : '', task, rules].filter(Boolean).join('\n\n');
