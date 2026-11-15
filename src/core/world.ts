@@ -264,6 +264,7 @@ export const DEFAULT_APPS: AppDef[] = [
     { id: 'homes', name: 'Homes', icon: 'home', color: '#ff375f', on: true },
     { id: 'social', name: 'Chirp', icon: 'at', color: '#1d9bf0', on: true },
     { id: 'dating', name: 'Spark', icon: 'flame', color: '#ff4f6d', on: true },
+    { id: 'photos', name: 'Photos', icon: 'image', color: '#30b0c7', on: true },
     { id: 'plans', name: 'Calendar', icon: 'calendar', color: '#ff9500', on: true },
     { id: 'journal', name: 'Journal', icon: 'book', color: '#8e6cf0', on: true },
     { id: 'shop', name: 'Shop', icon: 'wallet', color: '#16c79a', on: true },

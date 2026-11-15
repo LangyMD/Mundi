@@ -2,6 +2,9 @@
 
 ## Unreleased (this fork)
 
+- **Photos on the phone:** a new Photos app gathers the pictures of this game (those in the chat and those posted
+  on Chirp) by person. Who is in a picture is guessed from who sent it; open a picture to change who is in it, and
+  that is kept in the save. Each person's page in People links to their photos.
 - **Clothes the game keeps track of:** everyone in the scene, and you, now have a look in the save: a kind of outfit
   (everyday, formal, athletic, sleepwear, party, swimwear, hot weather, cold weather, work) and a layer (with
   outerwear, the outfit, underwear, nothing). The game changes it by itself: sleepwear at home at night, work clothes

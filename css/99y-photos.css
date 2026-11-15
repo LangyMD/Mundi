@@ -1,0 +1,19 @@
+/* The Photos app on the phone */
+#mundi-root .mu-photos { display: grid; gap: 10px; align-content: start; }
+#mundi-root .mu-photo-people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#mundi-root .mu-photo-people button { display: grid; gap: 6px; padding: 0 0 8px; overflow: hidden; text-align: left; align-content: start; }
+#mundi-root .mu-photo-people img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+#mundi-root .mu-photo-people span { display: grid; gap: 1px; padding: 0 8px; min-width: 0; }
+#mundi-root .mu-photo-people small { color: var(--muted); }
+#mundi-root .mu-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+#mundi-root .mu-photo-grid button { position: relative; padding: 0; border: 0; overflow: hidden; border-radius: 6px; }
+#mundi-root .mu-photo-grid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+#mundi-root .mu-photo-grid i { position: absolute; right: 4px; bottom: 4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; }
+#mundi-root .mu-photo-grid i svg { width: 12px; height: 12px; }
+#mundi-root .mu-photo-one { margin: 0; display: grid; gap: 6px; }
+#mundi-root .mu-photo-one img { display: block; width: 100%; border-radius: 8px; }
+#mundi-root .mu-photo-one figcaption { display: grid; gap: 2px; }
+#mundi-root .mu-photo-one small { color: var(--muted); }
+#mundi-root .mu-photo-tags { display: grid; gap: 6px; }
+#mundi-root .mu-photo-tags .mu-chip img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; margin-right: 4px; vertical-align: -4px; }
+#mundi-root .mu-photo-tags .mu-row { display: flex; gap: 6px; flex-wrap: wrap; }
