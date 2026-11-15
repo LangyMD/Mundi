@@ -8,7 +8,8 @@ export const DEFAULT_MODIFIERS = [
     { trait: 'Kind', target: 'bond', gain: 1.15 }, { trait: 'Kind', target: 'bond', decay: 0.75 },
     { trait: 'Sarcastic', target: 'bond', gain: 0.9 },
     { trait: 'Nightlife', target: 'social', gain: 1.2 },
-    { trait: 'Romantic', target: 'romance', gain: 1.25 },
+    { trait: 'Romantic', target: 'romance', gain: 1.25 }, { trait: 'Romantic', target: 'intimacy', decay: 1.25 }, { trait: 'Romantic', target: 'intimacy', gain: 1.2 },
+    { trait: 'Shy', target: 'intimacy', decay: 0.8 }, { trait: 'Serious', target: 'intimacy', decay: 0.85 },
     // mood
     { trait: 'Cheerful', target: 'mood', decay: 0.75 }, { trait: 'Calm', target: 'mood', decay: 0.85 }, { trait: 'Devout', target: 'mood', decay: 0.9 },
     { trait: 'Hot-headed', target: 'mood', decay: 1.25 }, { trait: 'Heavy drinker', target: 'mood', decay: 1.1 },

@@ -699,6 +699,29 @@
      "everyMinutes": 60
     }
    }
+  },
+  {
+   "id": "intimacy",
+   "name": "Intimacy",
+   "icon": "💗",
+   "color": "#e7489a",
+   "start": 60,
+   "max": 100,
+   "hud": true,
+   "optional": true,
+   "decay": {
+    "amount": 2,
+    "everyMinutes": 60,
+    "awakeOnly": true
+   },
+   "zero": {
+    "text": "You miss being close to someone, and it weighs on your mood.",
+    "drain": {
+     "status": "mood",
+     "amount": 1,
+     "everyMinutes": 60
+    }
+   }
   }
  ],
  "actions": [

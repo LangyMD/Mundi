@@ -15,6 +15,7 @@ import { placeOf, playerHomeId } from './places.js';
 import { book } from './ledger.js';
 import { extraActions, isBlocked, brokenThings, hasItem } from './life.js';
 import { decayMult, gainMult } from './modifiers.js';
+import { closeActions } from './intimacy.js';
 
 const clamp = (v: number, max: number) => Math.max(0, Math.min(max, Math.round(v)));
 export const statusDef = (w: WorldDef, id: string) => w.statuses.find(s => s.id === id);
@@ -152,9 +153,10 @@ export function actionsHere(g: Save, w: WorldDef): ActionDef[] {
     if (homeMode) {
         const list = all.filter(a => !earns(a)).filter(a => !wet || !a.anywhere || !!chosen?.includes(a.id));
         const pool = w.actions.filter(useful).filter(a => !earns(a)).filter(a => !isBlocked(g, a, w));
-        return homeRoomActions(pl, list, pool, chosen, wet).map(a => (a.cost ? { ...a, cost: 0 } : a));
+        return [...homeRoomActions(pl, list, pool, chosen, wet).map(a => (a.cost ? { ...a, cost: 0 } : a)), ...closeActions(g, w)];
     }
-    return all.map(a => (a.cost ? { ...a, cost: a.cost > 0 ? Math.round(priceOf(g, a.cost) * here) : priceOf(g, a.cost) } : a));
+    // (and, with the intimacy need on, what you can do to be close to who is here)
+    return [...all.map(a => (a.cost ? { ...a, cost: a.cost > 0 ? Math.round(priceOf(g, a.cost) * here) : priceOf(g, a.cost) } : a)), ...closeActions(g, w)];
 }
 
 // Home: what earns or costs a trip out is not a thing to do in a room (no money in a Home).

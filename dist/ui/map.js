@@ -30,6 +30,7 @@ import { stayOf } from './events.js';
 import { actionSound, lifeSound } from './sfx.js';
 import { refreshPrompt } from '../sim/prompt.js';
 import { applyAction, canAfford, money, actionsHere, addStatus, tooTired } from '../sim/needs.js';
+import { closeOutcome } from '../sim/intimacy.js';
 import { shiftsToPromote, isOpen, fits, hire, rankOf, pendingBranch, shiftLeft } from '../sim/work.js';
 import { advance, weekday, hm } from '../sim/time.js';
 import { syncScene } from '../sim/game.js';
@@ -665,6 +666,20 @@ export async function doAction(id, say = false) {
     }
     if (isDoing())
         return false;
+    // being close to someone (the intimacy need): the engine decides whether they want it; a no ends it here
+    const close = closeOutcome(g, w, a);
+    if (close && !close.ok) {
+        advance(g, w, 2).forEach(m => toast(m, 'warn'));
+        toast(close.toast, 'info');
+        saveGame();
+        await syncScene();
+        if (state.view === 'scene')
+            setPrompt('mundi_roll', close.hint);
+        if (!say)
+            narrateNow(a.label);
+        notify();
+        return close.hint;
+    }
     const before = presentAt(g, w, g.player.loc); // who is here now: the action takes time, and people come and go meanwhile
     const where = g.player.loc;
     actionSound(a.effects, a.id);
@@ -690,7 +705,7 @@ export async function doAction(id, say = false) {
     }
     else {
         toast(`${a.name}: done.`, 'success');
-        hint = `[Just now {{user}} chose to ${a.label.toLowerCase()}. Narrate how it goes, in the scene.]`;
+        hint = close?.hint ?? `[Just now {{user}} chose to ${a.label.toLowerCase()}. Narrate how it goes, in the scene.]`;
         if (state.view === 'scene')
             setPrompt('mundi_roll', hint);
         if (!say)

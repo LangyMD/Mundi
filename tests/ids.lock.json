@@ -140,7 +140,8 @@
    "thirst",
    "mood",
    "hygiene",
-   "social"
+   "social",
+   "intimacy"
   ],
   "actions": [
    "stew",
@@ -374,7 +375,8 @@
    "thirst",
    "mood",
    "hygiene",
-   "social"
+   "social",
+   "intimacy"
   ],
   "actions": [
    "coffee",
@@ -624,7 +626,8 @@
    "thirst",
    "mood",
    "hygiene",
-   "social"
+   "social",
+   "intimacy"
   ],
   "actions": [
    "coffee",
@@ -841,7 +844,8 @@
    "thirst",
    "mood",
    "hygiene",
-   "social"
+   "social",
+   "intimacy"
   ],
   "actions": [
    "coffee",
@@ -970,7 +974,8 @@
    "thirst",
    "mood",
    "hygiene",
-   "social"
+   "social",
+   "intimacy"
   ],
   "actions": [
    "snack",

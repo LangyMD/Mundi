@@ -10,6 +10,12 @@
 - **A social need, if you want it:** This world → World → Needs → Extra needs (in a Home: the Needs tab). Off by
   default, chosen per game. It drops while you are awake; talking to people, texting, running into friends and a
   drink out fill it; left empty, loneliness wears your mood down.
+- **An intimacy need, if you want it:** the same place, off by default, chosen per game (needs romance on in the
+  world). With it on, the things to do include being close to who is here: a hug with a friend, cuddling or a kiss
+  with a crush, making love with a partner when you are alone at home, or private time alone. They decide for
+  themselves, from the game's own numbers (romance, bond, what they think of you, whether they are at work): the AI
+  is told whether they welcomed it or turned it down and only narrates that. No AI call. Never with family beyond a
+  hug. "Fade to black" (on by default) tells the AI to cut away rather than describe.
 - **Friendships can fade:** the same place, off by default. After a week with no contact, a friendship loses a point
   a day, never below an acquaintance; partners keep theirs.
 - **Free text in the message box:** Settings → Game → Message box. Keep the Say / Do / Story / See buttons, add a

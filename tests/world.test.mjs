@@ -314,9 +314,11 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     const hg = { cfg: { needs: true } };
     ok(!W.activeStatuses(house, hg).some(s => s.id === 'social') && W.activeStatuses(house, { cfg: { needs: true, optNeeds: ['social'] } }).some(s => s.id === 'social') && !W.activeStatuses(house, { cfg: { optNeeds: ['social'] } }).length, 'Home: the social need comes with needs on, when chosen');
     // an older custom world gets the optional needs once
-    const oldw = structuredClone(modern); oldw.id = 'oldneeds'; oldw.statuses = oldw.statuses.filter(s => s.id !== 'social'); delete oldw.presetNeeds2;
+    const oldw = structuredClone(modern); oldw.id = 'oldneeds'; oldw.statuses = oldw.statuses.filter(s => !s.optional); delete oldw.presetOptNeeds;
     presets.upgradeWorld(oldw);
-    ok(oldw.statuses.some(s => s.id === 'social' && s.optional) && oldw.presetNeeds2, 'a world made before it gets the social need (off until chosen)');
+    ok(oldw.statuses.some(s => s.id === 'social' && s.optional) && oldw.statuses.some(s => s.id === 'intimacy' && s.optional), 'a world made before them gets the optional needs (off until chosen)');
+    const half = structuredClone(modern); half.id = 'half'; half.statuses = half.statuses.filter(s => !s.optional); delete half.presetOptNeeds; half.presetNeeds2 = true; presets.upgradeWorld(half);
+    ok(!half.statuses.some(s => s.id === 'social') && half.statuses.some(s => s.id === 'intimacy'), 'a world that was already offered one gets only the new one');
     oldw.statuses = oldw.statuses.filter(s => s.id !== 'social'); presets.upgradeWorld(oldw);
     ok(!oldw.statuses.some(s => s.id === 'social'), 'removed in the creator, it stays removed');
     // friendships fade only when asked
@@ -331,6 +333,56 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     ok(S.bond[b[0]] === 45 && S.bond[b[1]] === 10 && S.bond[b[2]] === 90, `after that a point a day; acquaintances and partners keep theirs (${S.bond[b[0]]})`);
     soc.addBond(g, b[0], 1); g.day = d0 + 13; soc.bondFade(g, modern);
     ok(S.bond[b[0]] >= 46, 'getting in touch stops the fading');
+}
+// the intimacy need: off unless chosen; what is offered depends on how close you are; they decide for themselves
+{
+    const close = await D('sim/intimacy.js'); const soc = await D('sim/social.js'); const rom = await D('sim/romance.js'); const living = await D('sim/living.js'); const fam = await D('sim/family.js');
+    const g = open(fixture('v0.1.0-modern.json'));
+    const [a, b] = Object.keys(g.cast); const A = g.cast[a], B = g.cast[b]; A.met = B.met = true;
+    const S = soc.social(g); S.partner = []; g.romance = {}; g.player.traits = {};
+    const bring = (...who) => { S.with = who.map(avatar => ({ avatar, until: 1e12 })); };
+    const set = (av, bond, r, status = 'none') => { S.bond[av] = bond; rom.romOf(g, av).value = r; rom.romOf(g, av).status = status; };
+    const ids = () => needs.actionsHere(g, modern).filter(x => close.isClose(x)).map(x => x.id);
+    at(g, 6, 20 * 60); g.player.loc = 'park'; bring(a); set(a, 60, 50);
+    ok(!ids().length && !W.activeStatuses(modern, g).some(s => s.id === 'intimacy'), 'off by default: nothing is offered');
+    g.cfg = { ...(g.cfg ?? {}), optNeeds: ['intimacy'] }; g.player.stats.intimacy = 40; g.tick = {};
+    ok(ids().join() === `close:hug:${a},close:cuddle:${a},close:kiss:${a}`, `a crush in the park: a hug, cuddling, a kiss; nothing more in public (${ids().join()})`);
+    set(a, 35, 0); ok(ids().join() === `close:hug:${a}`, 'a friend: a hug');
+    set(a, 5, 0); ok(!ids().length, 'a stranger: nothing');
+    set(a, 80, 80, 'dating'); g.player.loc = 'home:player';
+    ok(ids().includes(`close:love:${a}`), 'a partner, alone at home: making love is possible');
+    bring(a, b); set(b, 40, 0);
+    ok(!ids().includes(`close:love:${a}`) && ids().includes(`close:hug:${b}`), 'not with someone else in the room');
+    bring(); ok(ids().join() === 'close:solo', 'alone at home: private time');
+    g.player.loc = 'park'; ok(!ids().length, 'not alone in the park');
+    // family: a hug, nothing else
+    bring(a); g.player.loc = 'home:player'; g.family = { kids: [], pregnancy: null, tries: {}, ties: [] };
+    set(a, 80, 80); living.setTie(g, { a: '__you', b: a, type: 'sibling', tone: 'close' });
+    ok(fam.romanceBlocked(g, a) && ids().join() === `close:hug:${a}`, `family: only a hug (${ids().join()})`);
+    living.removeTie(g, '__you', a); ok(!fam.romanceBlocked(g, a), '(the tie is gone again)');
+    // they decide: sure, never, and the same answer for the same day in between
+    set(a, 80, 80, 'dating'); const r0 = rom.romValue(g, a);
+    const yes = close.closeOutcome(g, modern, { id: `close:love:${a}` });
+    ok(yes.ok && /wanted it too/.test(yes.hint) && /Do not describe it/.test(yes.hint), 'a loving partner welcomes it; by default the AI is told to cut away');
+    g.cfg.fade = false; ok(!/Do not describe it/.test(close.closeOutcome(g, modern, { id: `close:love:${a}` }).hint), 'fade to black can be turned off'); delete g.cfg.fade;
+    const act = needs.actionsHere(g, modern).find(x => x.id === `close:love:${a}`); const i0 = g.player.stats.intimacy;
+    needs.applyAction(g, modern, act);
+    ok(g.player.stats.intimacy === i0 + 60 && rom.romValue(g, a) > r0, 'welcomed: the need fills and the two grow closer');
+    set(a, 30, 42); living.approve(g, a, -living.approvalOf(g, a)); const r1 = rom.romValue(g, a);   // a crush who barely knows you: score 37.2, a kiss needs 50
+    const no = close.closeOutcome(g, modern, { id: `close:kiss:${a}` });
+    ok(!no.ok && /did not want that/.test(no.hint) && /does not give in/.test(no.hint) && rom.romValue(g, a) < r1, 'too soon: turned down, the AI is told so, and it costs a little');
+    ok(!ids().includes(`close:kiss:${a}`), 'turned down today: not offered again today');
+    g.day += 1; set(a, 30, 42); ok(ids().includes(`close:kiss:${a}`), 'the next day it can be tried again');
+    set(a, 50, 45);   // score 47: could go either way
+    const first = close.closeOutcome(structuredClone(g), modern, { id: `close:kiss:${a}` }).ok;
+    ok([1, 2, 3].every(() => close.closeOutcome(structuredClone(g), modern, { id: `close:kiss:${a}` }).ok === first), 'unsure: the same day gives the same answer');
+    ok(close.closeOutcome(g, modern, { id: 'cook' }) === null, 'other actions are not touched');
+    // the need itself
+    bring(); g.player.stats.intimacy = 50; g.tick = {}; at(g, g.day, 8 * 60); time.advance(g, modern, 1); time.advance(g, modern, 600);
+    ok(g.player.stats.intimacy === 30, `ten hours awake cost intimacy (${g.player.stats.intimacy})`);
+    const solo = needs.actionsHere({ ...g, player: { ...g.player, loc: 'home:player' } }, modern).find(x => x.id === 'close:solo');
+    g.player.loc = 'home:player'; needs.applyAction(g, modern, solo);
+    ok(g.player.stats.intimacy === 60, 'private time fills some of it');
 }
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

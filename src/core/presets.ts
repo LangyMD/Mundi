@@ -269,6 +269,8 @@ export const PRESETS: Record<string, Preset> = {
 export const OPTIONAL_NEEDS: StatusDef[] = [
     { id: 'social', name: 'Social', icon: '💬', color: '#ff7eb6', start: 70, max: 100, hud: true, optional: true, decay: { amount: 3, everyMinutes: 60, awakeOnly: true },
         zero: { text: 'You have been on your own for too long: the loneliness weighs on your mood.', drain: { status: 'mood', amount: 2, everyMinutes: 60 } } },
+    { id: 'intimacy', name: 'Intimacy', icon: '💗', color: '#e7489a', start: 60, max: 100, hud: true, optional: true, decay: { amount: 2, everyMinutes: 60, awakeOnly: true },
+        zero: { text: 'You miss being close to someone, and it weighs on your mood.', drain: { status: 'mood', amount: 1, everyMinutes: 60 } } },
 ];
 const styleId = (w: WorldDef) => (w.style ?? ((w.kind || '').toLowerCase().includes('modern') ? 'modern' : (w.kind || 'modern').toLowerCase()));
 export const presetOf = (w: WorldDef): Preset => PRESETS[styleId(w)] ?? PRESETS.modern;
@@ -356,13 +358,17 @@ export function upgradeWorld(w: WorldDef): WorldDef {
         (w as any).presetCrises = true;
     }
     // optional needs (a social life): an older world gets them once, off until a game turns them on
-    if (!(w as any).presetNeeds2) {
-        if (w.statuses?.length) for (const s of OPTIONAL_NEEDS) if (!w.statuses.some(x => x.id === s.id)) {
+    // (`presetOptNeeds`: the ones this world was already offered, so one removed in the creator stays removed)
+    {
+        const had: string[] = ((w as any).presetOptNeeds ??= (w as any).presetNeeds2 ? ['social'] : []);
+        for (const s of OPTIONAL_NEEDS) if (!had.includes(s.id)) {
+            had.push(s.id);
+            if (!w.statuses?.length || w.statuses.some(x => x.id === s.id)) continue;
             const n = structuredClone(s);
             if (n.zero?.drain && !w.statuses.some(x => x.id === n.zero!.drain!.status)) delete n.zero.drain;
             w.statuses.push(n);
         }
-        (w as any).presetNeeds2 = true;
+        delete (w as any).presetNeeds2;
     }
     return w;
 }

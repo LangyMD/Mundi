@@ -352,18 +352,20 @@ Object.assign(INPUT, {
         if (!(el as HTMLInputElement).checked && i >= 0) l.splice(i, 1);
         saveGame(); refreshPrompt(); notify();
     },
+    'wc-fade': (el) => { const g = game(); if (!g) return; cfg(g).fade = (el as HTMLInputElement).checked ? undefined : false; saveGame(); notify(); },
     'wc-bondfade': (el) => { const g = game(); if (!g) return; cfg(g).bondFade = (el as HTMLInputElement).checked || undefined; saveGame(); notify(); },
     'wc-cfg': (el) => { const g = game(); if (!g) return; (cfg(g) as any)[el.dataset.k!] = Number(el.value); saveGame(); notify(); },
 });
 
 // Needs you can add to a game (a social life…), friendships that fade, and what your traits are doing to all of it.
 function needsExtras(g: Save, w: WorldDef): string {
-    const opt = optionalNeeds(w); const lines = modifierLines(g, w);
+    const opt = optionalNeeds(w).filter(s => s.id !== 'intimacy' || systemOn(w, 'romance')); const lines = modifierLines(g, w);
     return `${opt.length ? `<h4>Extra needs</h4>${opt.map(s => `<label class="mu-check"><input type="checkbox" data-input="wc-optneed" data-id="${esc(s.id)}" ${optNeedOn(g, s.id) ? 'checked' : ''}><span>${esc(s.icon)} ${esc(s.name)}<small>${esc(OPT_HINT[s.id] ?? 'An extra need for this game.')}</small></span></label>`).join('')}` : ''}
+        ${optNeedOn(g, 'intimacy') && opt.some(s => s.id === 'intimacy') ? `<label class="mu-check"><input type="checkbox" data-input="wc-fade" ${cfg(g).fade !== false ? 'checked' : ''}><span>Fade to black<small>The AI is told to cut away from intimate moments instead of describing them.</small></span></label>` : ''}
         ${systemOn(w, 'social') ? `<label class="mu-check"><input type="checkbox" data-input="wc-bondfade" ${cfg(g).bondFade ? 'checked' : ''}><span>Friendships fade without contact<small>After a week with no word, a friendship loses a point a day (never below an acquaintance; partners keep theirs).</small></span></label>` : ''}
         ${lines.length ? `<h4>What your traits change</h4><ul class="mu-wc-mods">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}`;
 }
-const OPT_HINT: Record<string, string> = { social: 'Drops while you are awake; talking to people, texting, a drink out and running into friends fill it. Left empty, it wears your mood down.' };
+const OPT_HINT: Record<string, string> = { intimacy: 'Closeness: a hug, cuddling, a kiss, making love (with people close enough, who decide for themselves), or time alone. It shows what you can do with who is here. Left empty, it wears your mood down.', social: 'Drops while you are awake; talking to people, texting, a drink out and running into friends fill it. Left empty, it wears your mood down.' };
 
 // Home: needs, if you want them (off by default): hunger, thirst, mood and hygiene drop with time, and you look after
 // them around the house. No energy, and nothing bad happens when one runs out: the AI is told how you feel.
