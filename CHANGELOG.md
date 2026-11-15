@@ -5,6 +5,9 @@
 - **Fixed: a busy place narrated as empty.** With nobody you know in a place, the narrator (and the scene prompt)
   said nobody was there, even when the place was busy. Now the AI is told that nobody you know is there but
   strangers are around as background: unnamed, and not speaking to you. An empty or closed place is still empty.
+- **Floor plan button:** in a place with rooms, "Floor plan" is now a button beside "Map", and the things to do no
+  longer list a row for every room. You go to a room from the plan. A room drawn on no floor still gets a row,
+  since the plan cannot reach it.
 - **Willow Lane (Porto Alto):** the default world has a new district, Willow Lane, reached from Midtown like Maple
   Heights: 6 homes and 6 public places (school, café, market, pub, community center, park) with 93 rooms on floor
   plans, 15 new people, and day and night pictures for every room, building and floor. It is the first part of a
