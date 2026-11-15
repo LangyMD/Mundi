@@ -28,6 +28,8 @@ export interface UiPrefs {
     sound: boolean; volume: number; music: boolean; musicVolume: number;
     /** weather sounds (the rain), apart from the interface sounds */ weatherSound: boolean; weatherVolume: number;
     /** a thing you do in a scene (shower, cook…): the AI narrates it right away */ narrateActions: boolean;
+    /** the narrator when you arrive somewhere: 'ai' (default), 'engine' (a plain line), 'off' */ narrArrive?: 'ai' | 'engine' | 'off';
+    /** who tells a thing you do: 'ai' the narrator (default), 'reply' a character there, 'engine', 'off' */ narrAction?: 'ai' | 'reply' | 'engine' | 'off';
     /** characters' texts (answers to invitations, letters…) written by the AI; off: short ready-made replies */ aiTexts: boolean;
     /** something you write that Mundi has an action for ("I take a shower"): 'ask' offers to start it (default), 'auto' starts it when sure, 'off' never */ typedActions?: 'off' | 'ask' | 'auto';
     /** Expand (the AI writes your short note out as your line): 'button' shows it to you first (default), 'auto' on every send, 'off' no button */ expand?: 'off' | 'button' | 'auto';

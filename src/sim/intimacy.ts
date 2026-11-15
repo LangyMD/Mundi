@@ -6,7 +6,7 @@
 // is told to cut away rather than describe it (This world → World → Needs).
 import { nowAbs, cfg, type Save, type Resident } from '../core/store.js';
 import { activeStatuses, isScenario, systemOn, type WorldDef, type ActionDef } from '../core/world.js';
-import { presentAt } from './people.js';
+import { hereWith } from './interiors.js';
 import { bondOf, isPartner, bump } from './social.js';
 import { romOf, romValue, addRomance } from './romance.js';
 import { approvalOf, approve } from './living.js';
@@ -56,7 +56,7 @@ export function closePossible(g: Save, w: WorldDef, r: Resident, kind: Exclude<C
 /** What can be done to be close, here and now (empty when this game has no intimacy need). */
 export function closeActions(g: Save, w: WorldDef): ActionDef[] {
     if (!intimacyOn(g, w)) return [];
-    const here = presentAt(g, w, g.player.loc);
+    const here = hereWith(g, w);   // (in your room, when the place has rooms)
     const out: ActionDef[] = [];
     // the three people you are closest to, so the list stays short in a crowd
     const near = here.filter(r => r.met).sort((a, b) => score(g, b.avatar) - score(g, a.avatar)).slice(0, 3);

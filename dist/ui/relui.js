@@ -2,6 +2,7 @@
 // milestone pop-up ("You and Samantha are now dating"), the end-of-day recap after sleeping (each person's bars
 // moving, a new tier filling the bar and changing its color), and the work screen with its choices.
 import { esc, game, notify, saveGame, toast, state } from '../core/store.js';
+import { hereWith } from '../sim/interiors.js';
 import { getWorld } from '../core/world.js';
 import { sysOn } from '../sim/romance.js';
 import { chat, quiet, sendCanned, setPrompt, thumb } from '../st/bridge.js';
@@ -9,7 +10,6 @@ import { icon } from './icons.js';
 import { ACT } from './reg.js';
 import { ASKS, canAsk, coolingDown, readiness, applyAnswer, pushTooSoon, endRelationship, romOf, friendTier, romanceTier, tierPct, FRIEND_TIERS, ROMANCE_TIERS } from '../sim/romance.js';
 import { bondOf, social } from '../sim/social.js';
-import { presentAt } from '../sim/people.js';
 import { WORK_MODES, workShift, jobDef, rankOf } from '../sim/work.js';
 import { tooTired } from '../sim/needs.js';
 import { note } from '../sim/facts.js';
@@ -104,7 +104,7 @@ export function detectAsk(text) {
     const hit = ASK_WORDS.find(([, re]) => re.test(text));
     if (!hit)
         return;
-    const people = presentAt(g, w, g.player.loc).filter(r => canAsk(g, r.avatar, hit[0]));
+    const people = hereWith(g, w).filter(r => canAsk(g, r.avatar, hit[0]));
     if (!people.length)
         return;
     const low = text.toLowerCase();

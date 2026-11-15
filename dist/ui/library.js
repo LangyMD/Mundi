@@ -3,6 +3,7 @@
 // settings" (shown only while editing) adds the fields most players never touch and SillyTavern's own panels.
 // Every change is saved into the native SillyTavern object (card, persona, lorebook, chat).
 import { state, notify, esc, game, toast, busy, settings, saveSettings } from '../core/store.js';
+import { forgetLookSprites } from './looksui.js';
 import { getWorld, loadWorld, BUILT_IN, activeStatuses, worlds } from '../core/world.js';
 import { ctx, characters, charOf, thumb, fullCharacter, saveCharacter, personas, savePersona, personaThumb, persona, lorebooks, loadLore, saveLore, newLoreEntry, chatLore, groupOf, selectedGroup, bindChatLore, charLorebooks, setCharLorebooks, importCharacterFiles, importLorebookFiles, importPersonaPictures, folders, tagIdsOf, newFolder, putInFolder, isFav, setFavorite, deleteCharacters, deletePersonas, deleteLorebooks, createCharacter, createPersona, createLorebook, duplicateCharacter, duplicatePersona, duplicateLorebook, setCharacterImage, setPersonaImage, defaultPersona, setDefaultPersona, personaSheet, setPersonaSheet, fetchSprites, uploadSprite, deleteSprite, expressionLabels, bgList, bgThumb, bgUrl, bgUpload, bgRename, bgDelete, bgFolderCreate, bgFolderPut, refreshList, folderColor, setFolderColor, deleteFolder, personaLore, setPersonaLore, exportCharacter, cardFile, fileNameOf, baseSpriteFolder, loreCount, charTags, tagColor, tagCharacter, untagCharacter, allTags, cardTokens, cachedTokens, folderMade, renameFolder, characterChats, useGreeting, openCharacter, } from '../st/bridge.js';
 import { gameEntry, heroDescription, initialsAvatar } from '../sim/game.js';
@@ -1278,6 +1279,7 @@ Object.assign(ACT, {
             return;
         await busy('Uploading', () => uploadSprite(id, el.dataset.l, file, el.dataset.s || el.dataset.l, EO.outfit));
         forgetOutfits(id);
+        forgetLookSprites(id);
         delete state.sprites[id];
         L.sprites = null;
         notify();
@@ -1287,6 +1289,7 @@ Object.assign(ACT, {
         if (!id)
             return;
         await busy('Deleting', () => deleteSprite(id, el.dataset.l, el.dataset.s, EO.outfit));
+        forgetLookSprites(id);
         delete state.sprites[id];
         L.sprites = null;
         notify();

@@ -2,6 +2,8 @@
 // The conversation IS the group chat: generation, streaming, swipes, regenerate, continue, impersonate,
 // editing and deleting all use SillyTavern's own functions.
 import { isRpg } from '../sim/rpg.js';
+import { hereWith, scenePlace } from '../sim/interiors.js';
+import { lookSprites } from './looksui.js';
 import { setHtml } from '../core/safe.js';
 import { lex } from '../core/lexicon.js';
 import { setPrompt } from '../st/bridge.js';
@@ -18,8 +20,8 @@ import { expandPrompt, cleanExpansion, EXPAND_SYSTEM } from '../sim/expand.js';
 import { actionsHere, money, socialContact } from '../sim/needs.js';
 import { shape, modesFor, modeFor, inputStyleOf } from '../core/compose.js';
 import { getWorld, worldFile, systemOn } from '../core/world.js';
-import { chat, speakerOf, thumb, sendText, replyAs, regenerate, continueLast, impersonate, stop, swipeLeft, swipeRight, editMessage, deleteMessageAt, expressionOf, fetchSprites, saveChat, me, currentCharacter, charOf, characters, ctx, addUserLine, narratorLine, personaName, quiet, lorebooks, chatLores, setChatLores, scenarioOpen, scenarioCast, scenarioTitle, addToScenario, removeFromScenario, setChatBackground, newScenarioChat, persona, personas, personaThumb, usePersona, setForReply, WILL_KEY, } from '../st/bridge.js';
-import { placeOf, isOuting } from '../sim/places.js';
+import { chat, speakerOf, thumb, sendText, replyAs, regenerate, continueLast, impersonate, stop, swipeLeft, swipeRight, editMessage, deleteMessageAt, expressionOf, saveChat, me, currentCharacter, charOf, characters, ctx, addUserLine, narratorLine, personaName, quiet, lorebooks, chatLores, setChatLores, scenarioOpen, scenarioCast, scenarioTitle, addToScenario, removeFromScenario, setChatBackground, newScenarioChat, persona, personas, personaThumb, usePersona, setForReply, WILL_KEY, } from '../st/bridge.js';
+import { isOuting } from '../sim/places.js';
 import { outingOf } from '../sim/outing.js';
 import { bgStyle } from './outing.js';
 import { bgHead, bgGrid } from './bgpick.js';
@@ -105,7 +107,7 @@ function spriteFor(avatar, label) {
     const list = state.sprites[avatar];
     if (list === undefined) {
         state.sprites[avatar] = null;
-        fetchSprites(avatar).then(l => { state.sprites[avatar] = l; notify(); });
+        lookSprites(avatar).then(l => { state.sprites[avatar] = l; notify(); }); // the pictures of what they wear now
         return '';
     }
     if (!list?.length)
@@ -139,11 +141,18 @@ function diceButton(nobody) {
 function background(g, w) {
     if (isOuting(g.player.loc))
         return bgStyle(outingOf(g)?.bg ?? ''); // Home, out of the house: the background you chose
-    const p = placeOf(g, w, g.player.loc);
+    const p = scenePlace(g, w); // (the room's own picture, in a building with rooms)
     if (!p)
         return '';
+    // a room with a picture of its own (in a building or a home with rooms)
+    if (p.building && p.bg) {
+        const own = pictureAt(w, g.minutes, p.bg, p.bgs);
+        if (own)
+            return `background-image:url('${worldFile(w, own)}');background-size:cover;background-position:center`;
+    }
+    const hid = String(p.building ?? p.id); // (a home room: the home it is in)
     if (p.home) {
-        const kind = w.homes.kinds[p.id === 'home:player' ? g.player.home.kind : (w.homes.zones.find(z => z.id === (g.cast[p.id.slice(5)]?.home.zone ?? g.vacated?.home?.zone))?.kind ?? 'apartment')]; // (a room a guest just left: its own picture)
+        const kind = w.homes.kinds[hid === 'home:player' ? g.player.home.kind : (w.homes.zones.find(z => z.id === (g.cast[hid.slice(5)]?.home.zone ?? g.vacated?.home?.zone))?.kind ?? 'apartment')]; // (a room a guest just left: its own picture)
         const img = kind && pictureAt(w, g.minutes, kind.image, kind.images); // the picture of this part of the day, if it has one
         if (img)
             return `background-image:url('${worldFile(w, img)}');background-size:cover;background-position:center`;
@@ -220,7 +229,7 @@ export function sceneHtml() {
     const w = getWorld(g.world);
     // talking alone with someone: only their picture stays in the scene
     const solo = soloOf(g);
-    const here = presentAt(g, w, g.player.loc).filter(r => !solo || r.avatar === solo);
+    const here = hereWith(g, w).filter(r => !solo || r.avatar === solo);
     const ex = expressions();
     const nobody = !here.length;
     // how many have a real sprite (the classic layout shows only those, so they share the room among themselves)
@@ -512,7 +521,7 @@ Object.assign(ACT, {
         const g1 = game(); // (the action may have moved the clock and the people)
         Object.assign(EXP, { seed: '', text: '' });
         // alone: nobody is called into the scene; the hidden narrator describes the place, the time and the feelings
-        if (g1 && w0 && inWorld && !presentAt(g1, w0, g1.player.loc).length) {
+        if (g1 && w0 && inWorld && !hereWith(g1, w0).length) {
             state.composer = '';
             await soloNarrate(g1, w0, text, hint);
             return;
@@ -523,7 +532,7 @@ Object.assign(ACT, {
             const force = CHECK.on;
             CHECK.on = false;
             try {
-                const res = await socialCheck(g1, w0, text, presentAt(g1, w0, g1.player.loc), force);
+                const res = await socialCheck(g1, w0, text, hereWith(g1, w0), force);
                 if (res) {
                     judged = true;
                     setPrompt('mundi_roll', res.prompt, 0);
@@ -536,7 +545,7 @@ Object.assign(ACT, {
         }
         // asking something of someone: the AI is told how willing they are, from the game's own numbers
         if (g1 && w0 && inWorld && !judged && UI().willing !== false && mode !== 'story' && mode !== 'see') {
-            const present = presentAt(g1, w0, g1.player.loc);
+            const present = hereWith(g1, w0);
             const req = findRequest(meant, present.map(r => r.name));
             const who = req && requestTarget(present, req, soloOf(g1));
             setForReply(WILL_KEY, req && who ? willingLine(g1, w0, who, req) : '');
@@ -558,7 +567,7 @@ Object.assign(ACT, {
         const g = game();
         const w = g && getWorld(g.world);
         if (g && w) {
-            const hearers = presentAt(g, w, g.player.loc).filter(r => !soloOf(g) || r.avatar === soloOf(g));
+            const hearers = hereWith(g, w).filter(r => !soloOf(g) || r.avatar === soloOf(g));
             const { hurt, harsh } = judgeLine(g, w, meant, hearers); // a harsh line counts only if they take it badly
             hurt.forEach(m => toast(m, 'warn'));
             if (!harsh)
@@ -654,7 +663,7 @@ async function expandNow() {
         return false;
     }
     const me = personaName();
-    const people = g && w ? presentAt(g, w, g.player.loc).map(r => r.name) : [];
+    const people = g && w ? hereWith(g, w).map(r => r.name) : [];
     const recent = chat().slice(-6).filter((m) => !m.is_system).map((m) => `${m.is_user ? me : m.name}: ${String(m.mes ?? '').replace(/\s+/g, ' ').slice(0, 300)}`).join('\n');
     const scene = sceneText().replace(/\{\{user\}\}/g, me).split('\n').slice(0, 4).join('\n');
     const about = personas().find(p => p.file === persona())?.description ?? '';

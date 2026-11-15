@@ -7,6 +7,8 @@
 //   without one, the usual picture is used.
 import { closedByEvents } from './hooks.js';
 export { closedByEvents };
+import { isShut } from './placestate.js';
+closedByEvents.push((g, _w, id) => isShut(g, id));   // closed (or hidden) in this game: sim/placestate.ts
 import type { Save } from '../core/store.js';
 import type { WorldDef, Place } from '../core/world.js';
 import { period } from './time.js';

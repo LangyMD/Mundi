@@ -1,6 +1,7 @@
 // Games and saves. A new game creates native SillyTavern objects: the cast's cards (when the world's example
 // cast is used), the player's persona, the world's lorebook and a group chat. The save lives in that chat.
 import { pictureAt } from './daynight.js';
+import { hereWith } from './interiors.js';
 import { addXp, makeSheet, syncLife, type NewSheet } from './rpg.js';
 import { rpgOf } from '../core/rpgdef.js';
 import { SCHEMA } from '../core/saves.js';
@@ -23,7 +24,6 @@ import {
     readChatMeta,
 } from '../st/bridge.js';
 import { playerHomeId } from './places.js';
-import { presentAt } from './people.js';
 import { sceneText, refreshPrompt } from './prompt.js';
 import { liveTogether, setTie, normalizeHomes, startingStand, LOVE_TIES, loveStatus, type TieType, type TieTone } from './living.js';
 import { applyGameLore } from './lore.js';
@@ -380,7 +380,7 @@ export function syncScene(): Promise<void> {
         if (!g || !gid || TUT.save) return;   // the tutorial's world is not a group chat
         const w = getWorld(g.world);
         if (!w) return;
-        const here = presentAt(g, w, g.player.loc);
+        const here = hereWith(g, w);
         // talking with only one person: the others stay in the scene but keep quiet
         let solo = String((g as any).social?.solo ?? '');
         // the one you were talking to alone left: everyone talks again
@@ -390,6 +390,9 @@ export function syncScene(): Promise<void> {
         // Home: the room's dress code (the outfits are looked up in the background; the next sync catches up)
         { const { applyDress, dressAt } = await import('./dress.js'); const { outfitsOf, hasOutfit } = await import('../ui/outfits.js'); const code = dressAt(g, g.player.loc);
           applyDress(g, w, a => { const l = outfitsOf(a); if (!code) return l; const h = hasOutfit(a, code); return h === null ? null : h ? [...(l ?? []), code] : (l ?? []); }); }
+        // what everyone wears follows the moment (sleepwear at night, work clothes on shift…), unless set by hand
+        { const { fadeTraits } = await import('./persontraits.js'); fadeTraits(g, w); }   // what you stopped doing together fades, a day at a time
+        { const { dressScene, loadWardrobe } = await import('../ui/looksui.js'); dressScene(g, w); here.forEach(r => void loadWardrobe(r.avatar)); }
         followBackground(g, w);
         refreshPrompt();
         saveGame();

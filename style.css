@@ -3929,6 +3929,54 @@ body.mundi-open #completion_prompt_manager_popup {
    can make the click land outside it, like on the gallery's arrows). */
 @keyframes mu-press { 0% { filter: brightness(1); } 35% { filter: brightness(1.32); } 100% { filter: brightness(1); } }
 #mundi-root button:active:not(:disabled):not([aria-disabled="true"]) { animation: mu-press .28s ease-out; }
+/* Rooms inside a place: the floor plan over the scene */
+#mundi-root .mu-rooms { width: min(92vw, 860px); display: grid; gap: 10px; }
+#mundi-root .mu-room-plan { position: relative; width: 100%; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, .04) center / cover no-repeat; border: 1px solid var(--line); }
+#mundi-root .mu-room-box { position: absolute; display: grid; align-content: center; justify-items: center; gap: 2px; padding: 2px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 4px; background: rgba(10, 14, 24, .38); color: #fff; font-size: 11px; line-height: 1.15; overflow: hidden; text-align: center; }
+#mundi-root .mu-room-box:hover { background: rgba(10, 14, 24, .2); border-color: #fff; }
+#mundi-root .mu-room-box.is-here { border: 2px solid var(--accent); background: rgba(10, 14, 24, .15); opacity: 1; }
+#mundi-root .mu-room-box.is-shut { background: repeating-linear-gradient(45deg, rgba(10, 14, 24, .6) 0 6px, rgba(10, 14, 24, .45) 6px 12px); }
+#mundi-root .mu-room-box b { text-shadow: 0 1px 3px #000; }
+#mundi-root .mu-room-box small { opacity: .85; }
+#mundi-root .mu-room-box span { display: flex; gap: 2px; align-items: center; flex-wrap: wrap; justify-content: center; }
+#mundi-root .mu-room-box img, #mundi-root .mu-room-box span i { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid #fff; }
+#mundi-root .mu-room-box span i { display: grid; place-items: center; background: #444; font-style: normal; font-size: 11px; }
+#mundi-root .mu-room-box em { font-style: normal; font-weight: 800; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #111; }
+/* This world → Places: what this game changed about the world's places */
+#mundi-root .mu-places { display: grid; gap: 10px; }
+#mundi-root .mu-place-list { display: grid; gap: 4px; }
+#mundi-root .mu-place { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+#mundi-root .mu-place.is-changed { border-color: var(--accent); }
+#mundi-root .mu-place-head { display: grid; gap: 2px; width: 100%; padding: 8px 12px; border: 0; border-radius: 0; text-align: left; justify-items: start; background: none; }
+#mundi-root .mu-place-head small { color: var(--muted); }
+#mundi-root .mu-place-body { display: grid; gap: 8px; padding: 8px 12px 12px; border-top: 1px solid var(--line); }
+#mundi-root .mu-place-body .mu-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+#mundi-root .mu-place-log { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+#mundi-root .mu-place-log small { color: var(--muted); }
+/* The Photos app on the phone */
+#mundi-root .mu-photos { display: grid; gap: 10px; align-content: start; }
+#mundi-root .mu-photo-people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#mundi-root .mu-photo-people button { display: grid; gap: 6px; padding: 0 0 8px; overflow: hidden; text-align: left; align-content: start; }
+#mundi-root .mu-photo-people img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+#mundi-root .mu-photo-people span { display: grid; gap: 1px; padding: 0 8px; min-width: 0; }
+#mundi-root .mu-photo-people small { color: var(--muted); }
+#mundi-root .mu-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+#mundi-root .mu-photo-grid button { position: relative; padding: 0; border: 0; overflow: hidden; border-radius: 6px; }
+#mundi-root .mu-photo-grid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+#mundi-root .mu-photo-grid i { position: absolute; right: 4px; bottom: 4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; }
+#mundi-root .mu-photo-grid i svg { width: 12px; height: 12px; }
+#mundi-root .mu-photo-one { margin: 0; display: grid; gap: 6px; }
+#mundi-root .mu-photo-one img { display: block; width: 100%; border-radius: 8px; }
+#mundi-root .mu-photo-one figcaption { display: grid; gap: 2px; }
+#mundi-root .mu-photo-one small { color: var(--muted); }
+#mundi-root .mu-photo-tags { display: grid; gap: 6px; }
+#mundi-root .mu-photo-tags .mu-chip img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; margin-right: 4px; vertical-align: -4px; }
+#mundi-root .mu-photo-tags .mu-row { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Someone's traits on their page in People */
+#mundi-root .mu-ptraits { display: grid; gap: 6px; }
+#mundi-root .mu-ptraits .mu-row { display: flex; gap: 6px; flex-wrap: wrap; }
+#mundi-root .mu-ptraits select, #mundi-root .mu-ptraits input { flex: 1; min-width: 0; }
+#mundi-root .mu-ptraits .mu-chip .mu-ibtn { width: 18px; height: 18px; margin-left: 4px; padding: 0; }
 /* The "Advanced" switch at the top of This world / This Home (and Needs): a switch in a pill, easy to see. */
 #mundi-root .mu-switch-row { padding: 6px 8px 6px 14px; border-radius: 999px; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .5); box-shadow: 0 2px 8px rgba(0, 0, 0, .18); transition: background .2s; }
 #mundi-root .mu-switch-row:hover { background: rgba(255, 255, 255, .3); }

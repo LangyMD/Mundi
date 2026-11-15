@@ -1,6 +1,7 @@
 // This world (the globe button, in game): the people who live here (job, home, routine), this save's notes,
 // the lorebooks the world uses, and the world's rules. "Advanced" shows the finer settings.
 import { castLevel, neighbors, NEIGHBORS_MIN, FRIEND_BOND } from '../sim/happenings.js';
+import { tabPlaces } from './placesui.js';
 import { bondOf } from '../sim/social.js';
 import { state, notify, esc, game, toast, saveGame, cfg } from '../core/store.js';
 import { DIFFICULTIES, difficultyOf } from '../sim/bills.js';
@@ -29,7 +30,7 @@ import { openCreatorEdit, CW as CREATOR } from './creator.js';
 import { tabAiContext } from './aictx.js';
 import { warningsBanner } from './warnings.js';
 import { ACT, INPUT } from './reg.js';
-const TABS = [['people', 'People'], ['homes', 'Households'], ['house', 'The house'], ['needs', 'Needs'], ['save', "Author's Note"], ['lore', 'Lorebooks'], ['ai', 'AI context'], ['rules', 'World']];
+const TABS = [['people', 'People'], ['homes', 'Households'], ['house', 'The house'], ['needs', 'Needs'], ['save', "Author's Note"], ['lore', 'Lorebooks'], ['ai', 'AI context'], ['places', 'Places'], ['rules', 'World']];
 const WC = { tab: 'people', adv: false, who: '', adding: false, q: '', lq: '', back: 'map' };
 const opt = (v, label, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(label)}</option>`;
 const sameRoutine = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -192,13 +193,13 @@ export function worldCfgHtml() {
     const w = g && getWorld(g.world);
     if (!g || !w)
         return '';
-    const body = WC.tab === 'people' ? tabPeople(g, w) : WC.tab === 'homes' ? tabHouseholds(g, w) : WC.tab === 'house' ? tabHouse(w) : WC.tab === 'needs' ? tabNeeds(g, w) : WC.tab === 'ai' ? tabAiContext() : WC.tab === 'save' ? tabSave() : WC.tab === 'lore' ? tabLore(g) : tabRules(g, w);
+    const body = WC.tab === 'places' && !isScenario(w) ? tabPlaces(g, w) : WC.tab === 'people' ? tabPeople(g, w) : WC.tab === 'homes' ? tabHouseholds(g, w) : WC.tab === 'house' ? tabHouse(w) : WC.tab === 'needs' ? tabNeeds(g, w) : WC.tab === 'ai' ? tabAiContext() : WC.tab === 'save' ? tabSave() : WC.tab === 'lore' ? tabLore(g) : tabRules(g, w);
     return `<div class="mu-settings mu-worldcfg">
         <div class="mu-subhead"><button data-act="wc-back" data-sfx="back">← Back</button><h2>${isScenario(w) ? 'This Home' : 'This world'}</h2><small data-notr>${esc(currentEntry()?.title ?? w.name)}</small>
             <label class="mu-switch-row"><span>Advanced</span><span class="mu-xswitch"><input type="checkbox" class="mu-toggle" data-input="wc-adv" ${WC.adv ? 'checked' : ''}><i></i></span></label></div>
         ${warningsBanner()}
         <div class="mu-settings-layout">
-            <nav class="mu-tabs">${TABS.filter(([id]) => (id !== 'house' && id !== 'needs') || isScenario(w)).map(([id, l]) => `<button class="${WC.tab === id ? 'is-on' : ''}" data-act="wc-tab" data-tab="${esc(id)}">${isScenario(w) && id === 'rules' ? 'Home' : isScenario(w) && id === 'homes' ? 'Bedrooms' : l}</button>`).join('')}</nav>
+            <nav class="mu-tabs">${TABS.filter(([id]) => id === 'places' ? !isScenario(w) : (id !== 'house' && id !== 'needs') || isScenario(w)).map(([id, l]) => `<button class="${WC.tab === id ? 'is-on' : ''}" data-act="wc-tab" data-tab="${esc(id)}">${isScenario(w) && id === 'rules' ? 'Home' : isScenario(w) && id === 'homes' ? 'Bedrooms' : l}</button>`).join('')}</nav>
             <div class="mu-settings-body mu-panel" data-keep="worldcfg">${body}</div>
         </div></div>`;
 }

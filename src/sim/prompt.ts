@@ -1,6 +1,7 @@
 // What the AI knows about the scene right now. Injected as an extension prompt before every reply, so it works
 // with SillyTavern's normal generation (and with any preset). The world's lore lives in its lorebook instead.
 import { homeJobsLine } from './hometime.js';
+import { hereWith, scenePlace, elsewhereLine } from './interiors.js';
 import { dressLine } from './dress.js';
 import { approvalLine, couplesLine, rumorLines, activeWorldLore } from './living.js';
 import './longlife.js';   // people's lives over the weeks (runs by itself, day by day)
@@ -10,9 +11,14 @@ import { getWorld, homeNeedsOn } from '../core/world.js';
 import { aiLangNote } from '../core/i18n.js';
 import { setPrompt, setPromptInChat, nameOf } from '../st/bridge.js';
 import { styleOf, styleText } from './style.js';
+import { NARRATOR_RULE } from './narrate.js';
+import { looksLines } from './looks.js';
+import { traitLines } from './persontraits.js';
+import { changeLines, closedWhy } from './placestate.js';
+import { UI } from '../core/store.js';
 import { weekday, hm, period, seasonOf } from './time.js';
 import { placeOf } from './places.js';
-import { presentAt, whereNow, OUT } from './people.js';
+import { whereNow, OUT } from './people.js';
 import { partyLine as houseLine } from './houseparty.js';
 import { feelings } from './needs.js';
 import { planLines } from './plans.js';
@@ -73,6 +79,8 @@ export const BLOCKS: Block[] = [
     { id: 'romance', name: 'Friendship and romance', desc: 'Where you stand with each person here.', cut: 7 },
     { id: 'family', name: 'Your children', desc: 'Your children\'s age and how to treat them. Always sent when they are here.' },
     { id: 'ties', name: 'Family and ties', desc: 'Who is whose sister, parent, roommate…', cut: 6 },
+    { id: 'traits', name: 'Who they are lately', desc: 'The traits of the people here and yours: party animal, hurt for three more days…', cut: 6 },
+    { id: 'looks', name: 'Clothes', desc: 'What the people here and you are wearing, when it is not plain everyday clothes.', cut: 7 },
     { id: 'needs', name: 'How you feel', desc: 'Hunger, tiredness… only what stands out.', cut: 6 },
     { id: 'diary', name: 'Diary', desc: 'The last two days of your diary.', cut: 5 },
     { id: 'lore', name: 'World lore', desc: 'World lore that switches on with weather, time or place.', cut: 5 },
@@ -120,12 +128,15 @@ export function scenarioLines(g: any, w: WorldDef): string[] {
     return [`Home: everything happens in and around this one house; when someone goes out (work, errands, nights out) it is off-screen and only told afterwards.${premise ? ` Premise: ${premise}` : ''}`,
         ...(out.length ? [`Out of the house right now (not in any scene): ${out.join(', ')}.`] : []), homeJobsLine(g), dressLine(g, w), houseLine(g, w)].filter(Boolean);
 }
+// The narrator posts lines of its own (arrivals, things you do) unless both are off or left to the characters.
+const narratorOn = () => { const u = UI() as any; const act = u.narrAction ?? (u.narrateActions === false ? 'off' : 'ai'); return (u.narrArrive ?? 'ai') !== 'off' || act === 'ai' || act === 'engine'; };
 export function sceneBlocks(): Built[] {
     const g = game();
     const w = g && getWorld(g.world);
     if (!g || !w) return [];
     const here = placeOf(g, w, g.player.loc);
-    const present = presentAt(g, w, g.player.loc);
+    const spot = scenePlace(g, w);   // the room you are in, when the place has rooms
+    const present = hereWith(g, w);
     const met = present.filter(r => r.met);
     const names = present.map(r => r.name);
     const pc = promptCfg();
@@ -134,13 +145,14 @@ export function sceneBlocks(): Built[] {
             `[World state — ${w.name}]`,
             ...scenarioLines(g, w),
             `Now: ${weekday(g.day)}, day ${g.day}, ${hm(g.minutes)} (${period(w, g.minutes).name.toLowerCase()}). Weather: ${weatherHere(g, w).name.toLowerCase()}. Season: ${seasonOf(g).name.toLowerCase()}.`,
-            `Place: ${here?.name ?? 'somewhere'}${here?.desc ? ` — ${here.desc}` : ''}${here && !here.home && systemOn(w, 'living') && !openNow(g, w, here.id) ? ' (closed at this hour: the doors are shut; only staff, if anyone, is around)' : ''}`,
+            `Place: ${spot?.name ?? 'somewhere'}${spot?.desc ? ` — ${spot.desc}` : ''}${here && !here.home && closedWhy(g, here.id) !== null ? ` (closed${closedWhy(g, here.id) !== 'closed' ? `: ${closedWhy(g, here.id)}` : ''}; nobody is working here)` : here && !here.home && systemOn(w, 'living') && !openNow(g, w, here.id) ? ' (closed at this hour: the doors are shut; only staff, if anyone, is around)' : ''}`,
             names.length ? `Here with {{user}}: ${names.join(', ')}. Only they are in this scene; nobody else speaks or appears.` : 'Nobody else is here right now.',
+            ...(elsewhereLine(g, w) ? [elsewhereLine(g, w)] : []),
             ...(guestLine(g, present) ? [guestLine(g, present)] : []),
             ...(present.some(r => !r.met) ? [`Strangers to {{user}}: ${present.filter(r => !r.met).map(r => r.name).join(', ')}. They and {{user}} have never met: they do not know each other's names until they talk and introduce themselves.`] : []),
         ],
         // only the people in this scene and this place: nobody else's memories, nobody else's whereabouts
-        world: [worldLine(g, w), festivalLine(g, w), realmLine(g, w), skiesLine(g, w), ...legendLines(g, w)],
+        world: [worldLine(g, w), ...changeLines(g, g.player.loc, id => placeOf(g, w, id)?.name ?? id), festivalLine(g, w), realmLine(g, w), skiesLine(g, w), ...legendLines(g, w)],
         diary: diaryLines(g),
         memories: [...memoryLines(g, w, met, personaName()), ...placeMemoryLines(g, w, present)],
         plans: planLines(g, present, w),
@@ -156,10 +168,12 @@ export function sceneBlocks(): Built[] {
         family: [familyLine(g, present)],
         rumors: rumorLines(g, met),
         lore: activeWorldLore(g, w),
+        traits: traitLines(g, w, present),
+        looks: looksLines(g, present),
         needs: [feelings(g, w)],
         extra: [pc.extra],
     };
-    const tail = [names.length && pc.agency !== false ? AGENCY : '', pc.rules.trim() || DEFAULT_RULES, aiLangNote()].filter(Boolean).join('\n');
+    const tail = [names.length && pc.agency !== false ? AGENCY : '', names.length && narratorOn() ? NARRATOR_RULE : '', pc.rules.trim() || DEFAULT_RULES, aiLangNote()].filter(Boolean).join('\n');
     // a block whose system is off in this world is not there at all (not even as "off")
     const out: Built[] = blocksOf(w, g).map(b => {
         const own = (raw[b.id] ?? []).filter(Boolean).join('\n');

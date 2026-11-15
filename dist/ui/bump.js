@@ -1,11 +1,12 @@
 // Casual encounters ("bump-in"): doing something out of the house, there is a small chance of running into one of
 // the world's people who is free and around. Nobody is dropped into the scene: the player chooses what happens.
 import { feel } from '../sim/life.js';
+import { hereWith } from '../sim/interiors.js';
 import { markMet } from '../sim/game.js';
 import { state, notify, esc, game, saveGame, nowAbs } from '../core/store.js';
 import { getWorld } from '../core/world.js';
 import { tr } from '../core/tr.js';
-import { residents, whereNow, presentAt, stayHere } from '../sim/people.js';
+import { residents, whereNow, stayHere } from '../sim/people.js';
 import { playerHomeId, placeOf } from '../sim/places.js';
 import { isWorking } from '../sim/plans.js';
 import { bump as addBond, isWith } from '../sim/social.js';
@@ -22,7 +23,7 @@ export function maybeBump(g, w) {
     if (g.player.loc === playerHomeId || BUMP.who || Math.random() > CHANCE)
         return;
     const now = nowAbs(g);
-    const here = new Set(presentAt(g, w, g.player.loc).map(r => r.avatar));
+    const here = new Set(hereWith(g, w).map(r => r.avatar));
     const free = residents(g).filter(r => !here.has(r.avatar) && !isWith(g, r.avatar) && !isWorking(w, r, now) && whereNow(g, w, r) !== playerHomeId);
     if (!free.length)
         return;

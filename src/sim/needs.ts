@@ -1,6 +1,7 @@
 // Statuses (life, energy, hunger…) and the actions that change them. Everything comes from the world's data:
 // which statuses exist, how fast they drop, what happens at zero and what each action costs and gives.
 import { eventActions } from './cityevents.js';
+import { roomNow, fitsRoom, scenePlace } from './interiors.js';
 import { onAction, decayMods } from './hooks.js';
 import { nowAbs, cfg, type Save } from '../core/store.js';
 import { billNews, cutReason, priceOf } from './bills.js';
@@ -127,7 +128,9 @@ export function crisisLine(g: Save): string {
 // Actions available where the player is (a café sells coffee; at home you can cook).
 export function actionsHere(g: Save, w: WorldDef): ActionDef[] {
     const atHome = g.player.loc === playerHomeId;
-    const tags = placeOf(g, w, g.player.loc)?.tags ?? [];
+    // in a building with rooms, the room you are in decides (its tags, and the actions that name a kind of room)
+    const room = roomNow(g, w);
+    const tags = (room ? scenePlace(g, w) : placeOf(g, w, g.player.loc))?.tags ?? [];
     const on = new Set(activeStatuses(w, g).map(s => s.id));
     // an action only about needs that are not in play (seeing a doctor in Life-Sim) is left out
     // (a scenario keeps them all: in one house, what you do is part of the scene even with needs off)
@@ -140,8 +143,8 @@ export function actionsHere(g: Save, w: WorldDef): ActionDef[] {
     const homeMode = isScenario(w);
     const base = w.actions.filter(useful).filter(a => !homeMode || !earns(a)).filter(a => !isBlocked(g, a, w)).filter(a => a.id !== 'fix' || broken)
         .filter(a => homeMode || !a.needsItem || hasItem(g, a.needsItem)).filter(a => chosen || !(a.notTags ?? []).some(t => tags.includes(t))).filter(a => chosen ? (a.anywhere || chosen.includes(a.id)) : (a.home && atHome)
-        || (a.place && a.place === g.player.loc)
-        || (!a.home && !a.place && (a.anywhere || (a.tags ?? []).some(t => tags.includes(t))))).filter(a => !closed || a.anywhere);
+        || (a.place && (a.place === g.player.loc || a.place === room))
+        || (!a.home && !a.place && (a.anywhere || (a.tags ?? []).some(t => tags.includes(t))))).filter(a => !closed || a.anywhere).filter(a => !room || fitsRoom(a.rooms, tags));
     // prices after the difficulty; at home, what a cut-off service stops is left out
     // out and about, what you buy costs what it costs in this region now (the living world)
     const here = atHome ? 1 : priceHere(g, w);
