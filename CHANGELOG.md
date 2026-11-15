@@ -2,6 +2,10 @@
 
 ## Unreleased (this fork)
 
+- **Places that change:** This world → Places. Close a place for a while with a reason (or until you reopen it),
+  take it off the map, rename it, or add to how it looks. The change lives in the save; the world file is not
+  touched. People stop going to a closed or hidden place, the map and the scene follow, and the AI is told what
+  changed here lately and what is closed in town.
 - **Traits for people:** the people of the world (and you) can now have traits: lasting ones (party animal,
   athletic, bookworm, foodie, homebody, outdoorsy) and states that pass by themselves (hurt, sick, heartbroken,
   exhausted). A job counts as a trait by itself. Doing a thing with someone on five different days brings its trait

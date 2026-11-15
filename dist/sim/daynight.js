@@ -7,6 +7,8 @@
 //   without one, the usual picture is used.
 import { closedByEvents } from './hooks.js';
 export { closedByEvents };
+import { isShut } from './placestate.js';
+closedByEvents.push((g, _w, id) => isShut(g, id)); // closed (or hidden) in this game: sim/placestate.ts
 import { period } from './time.js';
 // The standard part of the day a world's period stands for (a "Vigil" from 0:00 counts as dawn…).
 export function partOf(w, minutes) {

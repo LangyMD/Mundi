@@ -2,6 +2,7 @@
 import { travelFactor } from './life.js';
 import { cfg, type Save } from '../core/store.js';
 import { isScenario, type WorldDef, type Place } from '../core/world.js';
+import { withState, isHidden } from './placestate.js';
 
 export const playerHomeId = 'home:player';
 export const isHome = (id: string) => id.startsWith('home:');
@@ -40,7 +41,9 @@ export function placeOf(g: Save, w: WorldDef, id: string): (Place & { home?: boo
         return { id, name: `${label}'s home`, map: zone?.map ?? w.maps[0].id, x: r.home.x, y: r.home.y, tags: ['home'], desc: `${homeAddress(w, r.home)}: ${zone?.desc ?? ''}`, home: true, owner: r.avatar };
     }
     if (isOuting(id)) return { id, name: outingName(id), map: w.maps[0]?.id ?? '', x: 50, y: 50, tags: ['outing'], desc: `out of the house: ${outingName(id)}` };
-    return w.places.find(p => p.id === id) ?? extraRooms(g).find(p => p.id === id) ?? null;
+    // (what this game changed about the place: its name, how it looks; sim/placestate.ts)
+    const p = w.places.find(p => p.id === id) ?? extraRooms(g).find(p => p.id === id) ?? null;
+    return p ? withState(g, p) : null;
 }
 /** Home: a place out of the house, named by the player ("out:the beach"). Going out, or a plan made somewhere out. */
 export const OUTING = 'out:';
@@ -61,7 +64,8 @@ export const roomsOn = (g: Save | null | undefined, w: WorldDef): string[] => {
 };
 export const placeOn = (g: Save | null | undefined, w: WorldDef, id: string) => !isScenario(w) || !w.places.some(p => p.id === id) || roomsOn(g, w).includes(id);
 export function pins(g: Save, w: WorldDef) {
-    const out: (Place & { home?: boolean; owner?: string })[] = [...w.places.filter(p => placeOn(g, w, p.id)), ...(isScenario(w) ? extraRooms(g) : [])];
+    // (a place this game hid is off the map, unless you are standing in it)
+    const out: (Place & { home?: boolean; owner?: string })[] = [...w.places.filter(p => placeOn(g, w, p.id) && (!isHidden(g, p.id) || g.player.loc === p.id)).map(p => withState(g, p)), ...(isScenario(w) ? extraRooms(g) : [])];
     const mine = placeOf(g, w, playerHomeId);
     if (mine) out.push(mine);
     // (a guest with no bedroom of their own, zone '__guest', has no room to show)

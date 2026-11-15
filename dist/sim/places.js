@@ -2,6 +2,7 @@
 import { travelFactor } from './life.js';
 import { cfg } from '../core/store.js';
 import { isScenario } from '../core/world.js';
+import { withState, isHidden } from './placestate.js';
 export const playerHomeId = 'home:player';
 export const isHome = (id) => id.startsWith('home:');
 // "North Suburbs, House 4": every home spot of the map has a fixed number.
@@ -43,7 +44,9 @@ export function placeOf(g, w, id) {
     }
     if (isOuting(id))
         return { id, name: outingName(id), map: w.maps[0]?.id ?? '', x: 50, y: 50, tags: ['outing'], desc: `out of the house: ${outingName(id)}` };
-    return w.places.find(p => p.id === id) ?? extraRooms(g).find(p => p.id === id) ?? null;
+    // (what this game changed about the place: its name, how it looks; sim/placestate.ts)
+    const p = w.places.find(p => p.id === id) ?? extraRooms(g).find(p => p.id === id) ?? null;
+    return p ? withState(g, p) : null;
 }
 /** Home: a place out of the house, named by the player ("out:the beach"). Going out, or a plan made somewhere out. */
 export const OUTING = 'out:';
@@ -63,7 +66,8 @@ export const roomsOn = (g, w) => {
 };
 export const placeOn = (g, w, id) => !isScenario(w) || !w.places.some(p => p.id === id) || roomsOn(g, w).includes(id);
 export function pins(g, w) {
-    const out = [...w.places.filter(p => placeOn(g, w, p.id)), ...(isScenario(w) ? extraRooms(g) : [])];
+    // (a place this game hid is off the map, unless you are standing in it)
+    const out = [...w.places.filter(p => placeOn(g, w, p.id) && (!isHidden(g, p.id) || g.player.loc === p.id)).map(p => withState(g, p)), ...(isScenario(w) ? extraRooms(g) : [])];
     const mine = placeOf(g, w, playerHomeId);
     if (mine)
         out.push(mine);

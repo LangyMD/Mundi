@@ -1,6 +1,7 @@
 // The people of the world: where each one is right now, following their routine (unless she is with you,
 // or has plans with you).
 import { homeJobOf, npcOut, onShift, SHIFTS } from './hometime.js';
+import { isShut } from './placestate.js';
 import { festivalSpot } from './festivals.js';
 import { eventSpot } from './cityevents.js';
 import { lockedHere } from './life.js';
@@ -85,7 +86,14 @@ export function routineStep(r, at) {
 /** Out of the house, off-screen (a scenario): not at any place. */
 export const OUT = 'out';
 // Where her routine puts her at a given moment (plans and company left aside).
+// Where their routine has them, unless this game closed or hid that place: then they are at home instead.
 export function routineAt(g, w, r, at) {
+    const to = routineSpot(g, w, r, at);
+    if (to.startsWith('home:') || to === OUT || !isShut(g, to))
+        return to;
+    return r.homeWith === '__you' ? 'home:player' : r.homeWith ? `home:${r.homeWith}` : `home:${r.avatar}`;
+}
+function routineSpot(g, w, r, at) {
     const [start, target] = routineStep(r, at);
     const day = Math.floor(at / 1440);
     // someone who lives with you (or with someone else) is at that home

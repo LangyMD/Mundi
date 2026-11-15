@@ -13,6 +13,7 @@ import { styleOf, styleText } from './style.js';
 import { NARRATOR_RULE } from './narrate.js';
 import { looksLines } from './looks.js';
 import { traitLines } from './persontraits.js';
+import { changeLines, closedWhy } from './placestate.js';
 import { UI } from '../core/store.js';
 import { weekday, hm, period, seasonOf } from './time.js';
 import { placeOf } from './places.js';
@@ -140,13 +141,13 @@ export function sceneBlocks() {
             `[World state — ${w.name}]`,
             ...scenarioLines(g, w),
             `Now: ${weekday(g.day)}, day ${g.day}, ${hm(g.minutes)} (${period(w, g.minutes).name.toLowerCase()}). Weather: ${weatherHere(g, w).name.toLowerCase()}. Season: ${seasonOf(g).name.toLowerCase()}.`,
-            `Place: ${here?.name ?? 'somewhere'}${here?.desc ? ` — ${here.desc}` : ''}${here && !here.home && systemOn(w, 'living') && !openNow(g, w, here.id) ? ' (closed at this hour: the doors are shut; only staff, if anyone, is around)' : ''}`,
+            `Place: ${here?.name ?? 'somewhere'}${here?.desc ? ` — ${here.desc}` : ''}${here && !here.home && closedWhy(g, here.id) !== null ? ` (closed${closedWhy(g, here.id) !== 'closed' ? `: ${closedWhy(g, here.id)}` : ''}; nobody is working here)` : here && !here.home && systemOn(w, 'living') && !openNow(g, w, here.id) ? ' (closed at this hour: the doors are shut; only staff, if anyone, is around)' : ''}`,
             names.length ? `Here with {{user}}: ${names.join(', ')}. Only they are in this scene; nobody else speaks or appears.` : 'Nobody else is here right now.',
             ...(guestLine(g, present) ? [guestLine(g, present)] : []),
             ...(present.some(r => !r.met) ? [`Strangers to {{user}}: ${present.filter(r => !r.met).map(r => r.name).join(', ')}. They and {{user}} have never met: they do not know each other's names until they talk and introduce themselves.`] : []),
         ],
         // only the people in this scene and this place: nobody else's memories, nobody else's whereabouts
-        world: [worldLine(g, w), festivalLine(g, w), realmLine(g, w), skiesLine(g, w), ...legendLines(g, w)],
+        world: [worldLine(g, w), ...changeLines(g, g.player.loc, id => placeOf(g, w, id)?.name ?? id), festivalLine(g, w), realmLine(g, w), skiesLine(g, w), ...legendLines(g, w)],
         diary: diaryLines(g),
         memories: [...memoryLines(g, w, met, personaName()), ...placeMemoryLines(g, w, present)],
         plans: planLines(g, present, w),

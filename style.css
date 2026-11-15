@@ -3928,6 +3928,17 @@ body.mundi-open #completion_prompt_manager_popup {
    can make the click land outside it, like on the gallery's arrows). */
 @keyframes mu-press { 0% { filter: brightness(1); } 35% { filter: brightness(1.32); } 100% { filter: brightness(1); } }
 #mundi-root button:active:not(:disabled):not([aria-disabled="true"]) { animation: mu-press .28s ease-out; }
+/* This world → Places: what this game changed about the world's places */
+#mundi-root .mu-places { display: grid; gap: 10px; }
+#mundi-root .mu-place-list { display: grid; gap: 4px; }
+#mundi-root .mu-place { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+#mundi-root .mu-place.is-changed { border-color: var(--accent); }
+#mundi-root .mu-place-head { display: grid; gap: 2px; width: 100%; padding: 8px 12px; border: 0; border-radius: 0; text-align: left; justify-items: start; background: none; }
+#mundi-root .mu-place-head small { color: var(--muted); }
+#mundi-root .mu-place-body { display: grid; gap: 8px; padding: 8px 12px 12px; border-top: 1px solid var(--line); }
+#mundi-root .mu-place-body .mu-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+#mundi-root .mu-place-log { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+#mundi-root .mu-place-log small { color: var(--muted); }
 /* The Photos app on the phone */
 #mundi-root .mu-photos { display: grid; gap: 10px; align-content: start; }
 #mundi-root .mu-photo-people { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
