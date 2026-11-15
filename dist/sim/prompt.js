@@ -30,7 +30,7 @@ import { familyLine } from './family.js';
 import { social, livePlan } from './social.js';
 import { personaName } from '../st/bridge.js';
 import { nowAbs } from '../core/store.js';
-import { worldLine, weatherHere } from './worldstate.js';
+import { worldLine, weatherHere, crowdLevel, crowdWord } from './worldstate.js';
 import { placeMemoryLines, whyHereLines } from './daylife.js';
 import { openNow } from './daynight.js';
 import { neighbors } from './happenings.js';
@@ -144,7 +144,7 @@ export function sceneBlocks() {
             ...scenarioLines(g, w),
             `Now: ${weekday(g.day)}, day ${g.day}, ${hm(g.minutes)} (${period(w, g.minutes).name.toLowerCase()}). Weather: ${weatherHere(g, w).name.toLowerCase()}. Season: ${seasonOf(g).name.toLowerCase()}.`,
             `Place: ${spot?.name ?? 'somewhere'}${spot?.desc ? ` — ${spot.desc}` : ''}${here && !here.home && closedWhy(g, here.id) !== null ? ` (closed${closedWhy(g, here.id) !== 'closed' ? `: ${closedWhy(g, here.id)}` : ''}; nobody is working here)` : here && !here.home && systemOn(w, 'living') && !openNow(g, w, here.id) ? ' (closed at this hour: the doors are shut; only staff, if anyone, is around)' : ''}`,
-            names.length ? `Here with {{user}}: ${names.join(', ')}. Only they are in this scene; nobody else speaks or appears.` : 'Nobody else is here right now.',
+            names.length ? `Here with {{user}}: ${names.join(', ')}. Only they are in this scene; nobody else speaks or appears.` : !here?.home && crowdLevel(g, w, g.player.loc) > 0 && openNow(g, w, g.player.loc) ? `Nobody {{user}} knows is here right now, but the place is not empty (${crowdWord(crowdLevel(g, w, g.player.loc))}): strangers are around as background, unnamed.` : 'Nobody else is here right now.',
             ...(elsewhereLine(g, w) ? [elsewhereLine(g, w)] : []),
             ...(guestLine(g, present) ? [guestLine(g, present)] : []),
             ...(present.some(r => !r.met) ? [`Strangers to {{user}}: ${present.filter(r => !r.met).map(r => r.name).join(', ')}. They and {{user}} have never met: they do not know each other's names until they talk and introduce themselves.`] : []),
