@@ -8,6 +8,7 @@ import { ctx } from '../st/bridge.js';
 import { blocksOf, promptCfg, sceneBlocks, sceneText, estTokens, refreshPrompt, DEFAULT_RULES } from '../sim/prompt.js';
 import { icon } from './icons.js';
 import { ACT, INPUT } from './reg.js';
+import { styleHtml } from './styleui.js';
 
 const A = { text: '', count: -1, preview: false, edit: '' };
 function count(text: string) {
@@ -34,7 +35,7 @@ export function tabAiContext(): string {
     const share = max && !unlocked ? Math.round((n / max) * 100) : 0;
     const steps = [0, 200, 300, 400, 500, 600, 800, 1000, 1200, 1500, 2000];
     const bi = Math.max(0, steps.indexOf(pc.budget));
-    return `${aiCallsHtml()}<section class="mu-wc-sec mu-aic">
+    return `${aiCallsHtml()}${styleHtml()}<section class="mu-wc-sec mu-aic">
             <h4>What Mundi sends to the AI</h4>
             <p class="mu-muted">Sent with every reply, on top of your preset, the character cards and the chat. Only what is about this place and the people here.</p>
             <div class="mu-aic-meter"><b>${A.count >= 0 ? '' : '≈ '}${n.toLocaleString('en-US')} tokens</b>
@@ -58,6 +59,7 @@ export function tabAiContext(): string {
         <section class="mu-wc-sec"><h4>Rules of the scene</h4>
             <p class="mu-muted">Sent last, after everything else. Empty: Mundi's own rules (shown greyed). The note about the language of replies is added by itself.</p>
             <textarea class="mu-aic-text" rows="3" data-input="aic-rules" data-focus="aic-rules" placeholder="${esc(DEFAULT_RULES)}">${esc(pc.rules)}</textarea>
+            <label class="mu-check"><input type="checkbox" data-input="aic-agency" ${pc.agency !== false ? 'checked' : ''}><span>Your character is one of the people, not their author<small>Sent before the rules when someone is with you: the others have their own wants and may refuse what you ask. Off: nothing is said about it.</small></span></label>
             ${pc.rules.trim() ? `<button class="mu-ghost" data-act="aic-reset" data-id="rules">${icon('undo')}<span>Back to Mundi's rules</span></button>` : ''}</section>
         <section class="mu-wc-sec"><button class="mu-ghost" data-act="aic-preview">${icon(A.preview ? 'up' : 'down')}<span>${A.preview ? 'Hide the text' : 'Show the text sent now'}</span></button>
             ${A.preview ? `<div class="mu-lib-text is-code" data-notr>${esc(text)}</div>` : ''}</section>`;
@@ -88,6 +90,7 @@ Object.assign(INPUT, {
     },
     // typing: saved and sent right away; the screen catches up on the next redraw
     'aic-text': (el) => { const pc = promptCfg(); const v = (el as unknown as HTMLTextAreaElement).value; if (v.trim()) pc.text[el.dataset.id!] = v; else delete pc.text[el.dataset.id!]; saveSettings(); refreshPrompt(); },
+    'aic-agency': (el) => { promptCfg().agency = el.checked; saveSettings(); refreshPrompt(); notify(); },
     'aic-rules': (el) => { promptCfg().rules = (el as unknown as HTMLTextAreaElement).value; saveSettings(); refreshPrompt(); },
     'aic-extra': (el) => { promptCfg().extra = (el as unknown as HTMLTextAreaElement).value; saveSettings(); refreshPrompt(); },
     'aic-budget': (el) => {

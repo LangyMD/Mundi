@@ -11,7 +11,12 @@ import { nativeHost } from './native.js';
 import { lockScene } from '../sim/life.js';
 import { soloOf } from './lifeui.js';
 import { judgeLine, judgeReaction, settleLine } from '../sim/mood.js';
-import { state, notify, esc, game, toast, ROOT_ID, saveGame } from '../core/store.js';
+import { state, notify, esc, game, toast, ROOT_ID, saveGame, UI } from '../core/store.js';
+import { styleOf, styleNote } from '../sim/style.js';
+import { findAction, findRequest, requestTarget, willingLine } from '../sim/intent.js';
+import { expandPrompt, cleanExpansion, EXPAND_SYSTEM } from '../sim/expand.js';
+import { actionsHere, money } from '../sim/needs.js';
+import { shape, modesFor, modeFor, inputStyleOf, type InputMode } from '../core/compose.js';
 import { getWorld, worldFile, systemOn, type WorldDef } from '../core/world.js';
 import type { Save } from '../core/store.js';
 import {
@@ -19,7 +24,7 @@ import {
     editMessage, deleteMessageAt, expressionOf, fetchSprites, saveChat, me, currentCharacter, charOf, characters, ctx,
     addUserLine, narratorLine, personaName, quiet, lorebooks, chatLores, setChatLores,
     scenarioOpen, scenarioCast, scenarioTitle, addToScenario, removeFromScenario, setChatBackground, newScenarioChat,
-    persona, personas, personaThumb, usePersona,
+    persona, personas, personaThumb, usePersona, setForReply, WILL_KEY,
 } from '../st/bridge.js';
 import { placeOf, isOuting } from '../sim/places.js';
 import { outingOf } from '../sim/outing.js';
@@ -228,15 +233,15 @@ export function sceneHtml() {
         <section class="mu-dialog">
             <div class="mu-log" data-keep="log" data-bottom>${logHtml()}</div>
             <div class="mu-composer">
-                ${modesHtml()}
-                <textarea data-focus="composer" rows="2" placeholder="${nobody ? 'You are alone here. Write what you do or think; the narrator describes the moment.' : 'Write what you say or do…'}">${esc(state.composer)}</textarea>
+                ${modesHtml()}${typedHtml(g, w)}
+                <textarea data-focus="composer" rows="2" placeholder="${nobody ? 'You are alone here. Write what you do or think; the narrator describes the moment.' : inputMode() === 'free' ? FREE_HINT : 'Write what you say or do…'}">${esc(state.composer)}</textarea>
                 <div class="mu-composer-tools">
                     ${state.generating
             ? '<button class="mu-danger" data-act="stop">■ Stop</button>'
             : `<button class="mu-primary" data-act="send">Send</button>
                        <button data-act="continue" title="The character continues their last line" ${nobody ? 'disabled' : ''}>${icon('forward')}</button>
                        <button data-act="regenerate" title="Regenerate the last answer" ${nobody ? 'disabled' : ''}>${icon('redo')}</button>
-                       <button data-act="impersonate" title="The AI writes your line" ${nobody ? 'disabled' : ''}>${icon('pen')}</button>${diceButton(nobody)}${sdButton()}${micButton()}<button data-act="ext-menu" class="${EXT.open ? 'is-on' : ''}" title="SillyTavern extensions">${icon('grid')}</button>`}
+                       <button data-act="impersonate" title="The AI writes your line" ${nobody ? 'disabled' : ''}>${icon('pen')}</button>${expandButton()}${diceButton(nobody)}${sdButton()}${micButton()}<button data-act="ext-menu" class="${EXT.open ? 'is-on' : ''}" title="SillyTavern extensions">${icon('grid')}</button>`}
                 </div>
             </div>
         </section>
@@ -313,7 +318,7 @@ export function chatHtml() {
             <div class="mu-log" data-keep="log" data-bottom>${logHtml()}</div>
             <div class="mu-composer">
                 ${modesHtml()}
-                <textarea data-focus="composer" rows="2" placeholder="Write what you say or do…">${esc(state.composer)}</textarea>
+                <textarea data-focus="composer" rows="2" placeholder="${inputMode() === 'free' ? FREE_HINT : 'Write what you say or do…'}">${esc(state.composer)}</textarea>
                 <div class="mu-composer-tools">
                     ${state.generating
             ? '<button class="mu-danger" data-act="stop">■ Stop</button>'
@@ -414,20 +419,61 @@ Object.assign(ACT, {
         await newScenarioChat();
         toast('New chat started. The previous one stays saved in SillyTavern.', 'success'); notify();
     },
-    send: async () => {
+    send: async (el) => {
         const raw = state.composer.trim();
         if (!raw) return;
-        const text = shapeLine(raw);
         const g0 = game(); const w0 = g0 && getWorld(g0.world);
+        const inWorld = !!g0 && !!w0 && !scenarioOpen();
+        // a line the AI just wrote out from your note (Expand) goes as it is; what it means is read from your note
+        let expanded = !!EXP.text && raw === EXP.text.trim();
+        if (!expanded && inWorld && expandStyle() === 'auto' && el?.dataset?.v !== 'plain' && ['say', 'do', 'free'].includes(inputMode()) && !/^[>?[]/.test(raw)) {
+            if (!(await expandNow())) return;
+            return ACT.send(el, new Event('click'));
+        }
+        const mode = expanded ? EXP.mode : inputMode();
+        const meant = expanded ? EXP.seed : raw;
+        const text = expanded ? shape('free', raw) : shapeLine(raw);
+        // something Mundi has an action for ("I take a shower"): offered once, then started with the line
+        let hint = '';
+        if (inWorld && typedStyle() !== 'off' && (mode === 'do' || mode === 'free') && !state.generating) {
+            const here = actionsHere(g0!, w0!);
+            let id = '';
+            if (TYPED.id && TYPED.text === raw) id = el?.dataset?.v === 'plain' ? '' : TYPED.id;
+            else {
+                const hit = findAction(mode === 'do' ? meant.replace(/["“”]/g, '') : meant, here, presentAt(g0!, w0!, g0!.player.loc).map(r => r.name));
+                const a = hit && here.find(x => x.id === hit.id);
+                if (hit && a) {
+                    if (typedStyle() === 'auto' && hit.sure) id = a.id;
+                    else { Object.assign(TYPED, { id: a.id, label: a.label, minutes: a.minutes, cost: a.cost, text: raw }); notify(); return; }
+                }
+            }
+            Object.assign(TYPED, { id: '', text: '' });
+            if (id) {
+                const { doAction } = await import('./map.js');
+                const done = await doAction(id, true);
+                if (done === false) { notify(); return; }   // (not enough money, too tired: the toast said why; the line stays in the box)
+                hint = done;
+            }
+        }
+        const g1 = game();   // (the action may have moved the clock and the people)
+        Object.assign(EXP, { seed: '', text: '' });
         // alone: nobody is called into the scene; the hidden narrator describes the place, the time and the feelings
-        if (g0 && w0 && !presentAt(g0, w0, g0.player.loc).length && !scenarioOpen()) { state.composer = ''; await soloNarrate(g0, w0, text); return; }
+        if (g1 && w0 && inWorld && !presentAt(g1, w0, g1.player.loc).length) { state.composer = ''; await soloNarrate(g1, w0, text, hint); return; }
         // RPG: an attempt to persuade, lie, threaten… is judged by the AI and decided by the dice before anyone answers
-        if (g0 && w0 && isRpg(w0) && !scenarioOpen()) {
+        let judged = false;
+        if (g1 && w0 && isRpg(w0) && inWorld) {
             const force = CHECK.on; CHECK.on = false;
             try {
-                const res = await socialCheck(g0, w0, text, presentAt(g0, w0, g0.player.loc), force);
-                if (res) { setPrompt('mundi_roll', res.prompt, 0); toast(res.toast, res.check.grade.includes('success') ? 'success' : 'warn'); res.msgs.forEach(m => toast(m, 'success')); saveGame(); }
+                const res = await socialCheck(g1, w0, text, presentAt(g1, w0, g1.player.loc), force);
+                if (res) { judged = true; setPrompt('mundi_roll', res.prompt, 0); toast(res.toast, res.check.grade.includes('success') ? 'success' : 'warn'); res.msgs.forEach(m => toast(m, 'success')); saveGame(); }
             } catch { /* the judge is offline: the line goes as it is */ }
+        }
+        // asking something of someone: the AI is told how willing they are, from the game's own numbers
+        if (g1 && w0 && inWorld && !judged && UI().willing !== false && mode !== 'story' && mode !== 'see') {
+            const present = presentAt(g1, w0, g1.player.loc);
+            const req = findRequest(meant, present.map(r => r.name));
+            const who = req && requestTarget(present, req, soloOf(g1));
+            setForReply(WILL_KEY, req && who ? willingLine(g1, w0, who, req) : '');
         }
         // "@Name" in the line: that person answers
         const men = scenarioOpen() ? { who: null, text } : mentionIn(text);
@@ -437,7 +483,7 @@ Object.assign(ACT, {
         const g = game(); const w = g && getWorld(g.world);
         if (g && w) {
             const hearers = presentAt(g, w, g.player.loc).filter(r => !soloOf(g) || r.avatar === soloOf(g));
-            const { hurt, harsh } = judgeLine(g, w, raw, hearers);   // a harsh line counts only if they take it badly
+            const { hurt, harsh } = judgeLine(g, w, meant, hearers);   // a harsh line counts only if they take it badly
             hurt.forEach(m => toast(m, 'warn'));
             if (!harsh) for (const r of hearers) if (r.met) addBond(g, r.avatar, 3);
             lockScene(g, w); saveGame();
@@ -445,6 +491,8 @@ Object.assign(ACT, {
         state.composer = '';
         notify();
     },
+    'typed-x': () => { Object.assign(TYPED, { id: '', text: '' }); notify(); },
+    expand: async () => { await expandNow(); },
     'input-mode': (el) => { INPUT_MODE.v = el.dataset.v as InputMode; notify(); },
     'roll-next': () => { CHECK.on = !CHECK.on; notify(); },
     'ext-menu': () => { EXT.open = !EXT.open; notify(); },
@@ -469,13 +517,13 @@ Object.assign(INPUT, { 'sc-q': (el) => { SC.q = el.value; notify(); } });
 
 // The invisible narrator for scenes with nobody else: your line goes into the chat, and the narrator answers with the
 // surroundings, the passing moment and how you feel. No character is made to appear.
-async function soloNarrate(g: Save, w: WorldDef, text: string) {
+async function soloNarrate(g: Save, w: WorldDef, text: string, hint = '') {
     state.generating = true; notify();
     try {
         await addUserLine(text);
         const me = personaName();
         const recent = chat().slice(-8).filter((m: any) => !m.is_system).map((m: any) => `${m.is_user ? me : m.name}: ${String(m.mes ?? '').replace(/\s+/g, ' ').slice(0, 300)}`).join('\n');
-        const out = await quiet(`${sceneText().replace(/\{\{user\}\}/g, me)}\n\n${recent}\n\nNarrate what happens next in 2 to 4 sentences, in the second person ("you"), following ${me}'s last line. ${me} is alone: describe only the place, small details, the passing moment and ${me}'s feelings and thoughts. No other character appears, speaks or arrives. Do not write ${me}'s words or decisions.${aiLangNote() ? ` ${aiLangNote()}` : ''}`, 260,
+        const out = await quiet(`${sceneText().replace(/\{\{user\}\}/g, me)}\n\n${recent}\n\n${hint ? `${hint.replace(/\{\{user\}\}/g, me)}\n` : ''}Narrate what happens next in 2 to 4 sentences, in the second person ("you"), following ${me}'s last line. ${me} is alone: describe only the place, small details, the passing moment and ${me}'s feelings and thoughts. No other character appears, speaks or arrives. Do not write ${me}'s words or decisions.${styleNote(styleOf(g)) ? ` ${styleNote(styleOf(g))}` : ''}${aiLangNote() ? ` ${aiLangNote()}` : ''}`, 260,
             'You are the quiet narrator of a life simulation. You never bring other characters into the scene.');
         if (out.trim()) await narratorLine(out.trim());
         else toast('No answer (is the AI connected?).', 'warn');
@@ -483,24 +531,74 @@ async function soloNarrate(g: Save, w: WorldDef, text: string) {
     state.generating = false; notify();
 }
 
+/* ---------- what you write: actions Mundi knows, and Expand ---------- */
+
+// An action found in the line you wrote, waiting for your word (`text`: the line it was found in).
+const TYPED = { id: '', label: '', minutes: 0, cost: 0, text: '' };
+const typedStyle = () => { const v = (UI() as any).typedActions; return v === 'off' || v === 'auto' ? v : 'ask'; };
+const expandStyle = () => { const v = (UI() as any).expand; return v === 'off' || v === 'auto' ? v : 'button'; };
+// The line the AI wrote out from your note: `seed` is what you wrote and `mode` how you meant it.
+const EXP = { seed: '', text: '', mode: 'free' as InputMode };
+function typedHtml(g: Save, w: WorldDef): string {
+    if (!TYPED.id || TYPED.text !== state.composer.trim() || state.generating) return '';
+    const bits = [TYPED.minutes ? (TYPED.minutes < 60 ? `${TYPED.minutes} min` : `${Math.round(TYPED.minutes / 6) / 10} h`) : '', TYPED.cost > 0 ? money(w, TYPED.cost) : ''].filter(Boolean).join(' · ');
+    void g;
+    return `<div class="mu-typed"><span>${icon('forward')}<b>${esc(TYPED.label)}</b>${bits ? `<small>${esc(bits)}</small>` : ''}</span>
+        <button class="mu-primary" data-act="send" data-v="start" title="The game does it (time passes, its effects apply) and your line is sent">Do it</button>
+        <button class="mu-ghost" data-act="send" data-v="plain" title="Only the story: the game does nothing">Just send</button>
+        <button class="mu-ghost mu-ibtn" data-act="typed-x" title="Back to writing">${icon('x')}</button></div>`;
+}
+const expandButton = () => (expandStyle() === 'off' ? '' : `<button data-act="expand" title="Expand: the AI writes your short note out as your line (you see it before it is sent)">${icon('sparkles')}</button>`);
+// Writes your note out in the message box. False: nothing came back (the note stays as it was).
+async function expandNow(): Promise<boolean> {
+    const seed = state.composer.trim();
+    const g = game(); const w = g && getWorld(g.world);
+    if (!seed) { toast('Write a few words first: what you say or do.', 'info'); return false; }
+    if (state.generating) return false;
+    const mode = inputMode();
+    if (mode === 'story' || mode === 'see' || /^[>?[]/.test(seed)) { toast('Expand is for what you say or do.', 'info'); return false; }
+    const me = personaName();
+    const people = g && w ? presentAt(g, w, g.player.loc).map(r => r.name) : [];
+    const recent = chat().slice(-6).filter((m: any) => !m.is_system).map((m: any) => `${m.is_user ? me : m.name}: ${String(m.mes ?? '').replace(/\s+/g, ' ').slice(0, 300)}`).join('\n');
+    const scene = sceneText().replace(/\{\{user\}\}/g, me).split('\n').slice(0, 4).join('\n');
+    const about = personas().find(p => p.file === persona())?.description ?? '';
+    state.generating = true; notify();
+    let out = '';
+    try { out = cleanExpansion(await quiet(expandPrompt({ me, about, scene, recent, seed, mode, style: styleNote(styleOf(g)), people }), 220, EXPAND_SYSTEM), me, people); }
+    catch (e: any) { toast(String(e?.message ?? e), 'error'); }
+    state.generating = false;
+    if (!out) { toast('No answer (is the AI connected?).', 'warn'); notify(); return false; }
+    if (state.composer.trim() !== seed) { notify(); return false; }   // you kept writing meanwhile: your text wins
+    Object.assign(EXP, { seed, text: out, mode });
+    if (TYPED.id && TYPED.text === seed) TYPED.text = out;   // (an action already offered for the note stays offered for the line)
+    state.composer = out;
+    const ta = document.getElementById(ROOT_ID)?.querySelector<HTMLTextAreaElement>('textarea[data-focus="composer"]'); if (ta) ta.value = out;
+    notify();
+    return true;
+}
+
 /* ---------- the message box: Say / Do / Story / See (26) ---------- */
 
-export type InputMode = 'say' | 'do' | 'story' | 'see';
-const MODES: [InputMode, string, string][] = [['say', 'Say', 'chat'], ['do', 'Do', 'forward'], ['story', 'Story', 'book'], ['see', 'See', 'search']];
-export const INPUT_MODE = { v: 'say' as InputMode };
+export type { InputMode } from '../core/compose.js';
+const MODES: Record<InputMode, [string, string, string]> = {
+    free: ['Free', 'pen', 'Sent exactly as you write it: mix what you say and do. Start with > for a story direction, ? to look at something'],
+    say: ['Say', 'chat', 'What you say out loud'], do: ['Do', 'forward', 'What you do'],
+    story: ['Story', 'book', 'Steer the story (a direction for the narrator)'], see: ['See', 'search', 'Look at something: the AI describes what you see'],
+};
+// '' until you pick one: the message box then uses its first mode (Free, when the box has it).
+export const INPUT_MODE = { v: '' as InputMode | '' };
+const inputStyle = () => inputStyleOf((UI() as any).inputStyle);
+export const inputMode = () => modeFor(inputStyle(), INPUT_MODE.v);
 function modesHtml() {
-    return `<div class="mh-modes">${MODES.map(([id, label, ic]) => `<button class="${INPUT_MODE.v === id ? 'is-on' : ''}" data-act="input-mode" data-v="${esc(id)}" title="${({ say: 'What you say out loud', do: 'What you do', story: 'Steer the story (a direction for the narrator)', see: 'Look at something: the AI describes what you see' } as any)[id]}">${icon(ic)}<span>${label}</span></button>`).join('')}</div>`;
+    const list = modesFor(inputStyle());
+    if (!list.length) return '';
+    const cur = inputMode();
+    return `<div class="mh-modes">${list.map(id => { const [label, ic, hint] = MODES[id]; return `<button class="${cur === id ? 'is-on' : ''}" data-act="input-mode" data-v="${esc(id)}" title="${esc(hint)}">${icon(ic)}<span>${label}</span></button>`; }).join('')}</div>`;
 }
+// The message box's hint: free text says how to write speech, actions and the two shortcuts.
+const FREE_HINT = 'Write what you say and do, as you like. > steers the story, ? looks at something.';
 // How a line is sent in each mode.
-export function shapeLine(text: string): string {
-    const t = text.trim();
-    switch (INPUT_MODE.v) {
-        case 'do': return /^\*.*\*$/s.test(t) ? t : `*${t.replace(/^\*|\*$/g, '')}*`;
-        case 'story': return `[Story direction: ${t}]`;
-        case 'see': return `*looks at ${t.replace(/^(at|the)\s+/i, (m) => m.toLowerCase() === 'at ' ? '' : m)}* [Describe what {{user}} sees.]`;
-        default: return /^["“*]/.test(t) ? t : `"${t}"`;
-    }
-}
+export const shapeLine = (text: string): string => shape(inputMode(), text);
 
 /* ---------- other SillyTavern extensions' buttons (23) ---------- */
 

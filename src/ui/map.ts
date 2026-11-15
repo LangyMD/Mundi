@@ -23,6 +23,7 @@ import { thumb } from '../st/bridge.js';
 import { pins, placeOf, travelMinutes, playerHomeId, isOuting, outingName } from '../sim/places.js';
 import { planOn, floorsOn, planTarget, unplaced, floorOf } from '../sim/plan.js';
 import { presentAt, whereNow } from '../sim/people.js';
+import { cameAndWent } from '../sim/intent.js';
 import { writeDiary, diaryOn, markDayStart } from '../sim/diary.js';
 import { openWork, diaryWaiting, diaryReady } from './relui.js';
 import { askAboutPlans } from './appts.js';
@@ -519,13 +520,24 @@ Object.assign(ACT, {
         if (askAboutPlans(g, mins, 'sleep')) return;
         return sleep();
     },
-    do: async (el) => {
+    do: (el) => doAction(el.dataset.id!),
+    zoom: (el) => zoomBy(el.dataset.d === 'in' ? 1.3 : 1 / 1.3),
+    'zoom-fit': () => applyMapView(true),
+});
+
+// Does one of the things to do here (a button's, or one started from what you wrote: sim/intent.ts). Time passes,
+// its effects apply, and the AI is told what happened. `say`: your own line about it is sent right after by whoever
+// called (so Mundi does not also send its ready-made "*take a shower*"). Returns what the AI was told, or false when
+// it could not be done.
+export async function doAction(id: string, say = false): Promise<string | false> {
         const { g, w } = ctxW();
-        const a = actionsHere(g, w).find(x => x.id === el.dataset.id);
-        if (!a) return;
-        if (!canAfford(g, a)) { toast('Not enough money.', 'info'); return; }
-        const tired = tooTired(g, w, Object.fromEntries(Object.entries(a.effects ?? {}).map(([k, v]) => [k, -v])), a.label.toLowerCase()); if (tired) { toast(tired, 'warn'); return; }
-        if (isDoing()) return;
+        const a = actionsHere(g, w).find(x => x.id === id);
+        if (!a) return false;
+        if (!canAfford(g, a)) { toast('Not enough money.', 'info'); return false; }
+        const tired = tooTired(g, w, Object.fromEntries(Object.entries(a.effects ?? {}).map(([k, v]) => [k, -v])), a.label.toLowerCase()); if (tired) { toast(tired, 'warn'); return false; }
+        if (isDoing()) return false;
+        const before = presentAt(g, w, g.player.loc);   // who is here now: the action takes time, and people come and go meanwhile
+        const where = g.player.loc;
         actionSound(a.effects, a.id);
         await doing(a.label, a.icon ?? '⏳', a.minutes);   // a moment on screen while the time passes
         applyAction(g, w, a);
@@ -537,22 +549,26 @@ Object.assign(ACT, {
         runPlans();
         saveGame();
         await syncScene();
+        let hint = '';
         if (roll) {
             toast(`${gradeName(roll.grade)} — ${roll.text}`, roll.grade.includes('success') ? 'success' : 'warn');
             // the AI only tells the story of the result the engine decided
-            if (state.view === 'scene') setPrompt('mundi_roll', `[Just now {{user}} tried to ${a.label.toLowerCase()}: ${gradeName(roll.grade).toLowerCase()}. ${roll.text} Narrate it in that light if it comes up.]`);
-            narrateNow(a.label);
+            hint = `[Just now {{user}} tried to ${a.label.toLowerCase()}: ${gradeName(roll.grade).toLowerCase()}. ${roll.text} Narrate it in that light if it comes up.]`;
+            if (state.view === 'scene') setPrompt('mundi_roll', hint);
+            if (!say) narrateNow(a.label);
         } else {
             toast(`${a.name}: done.`, 'success');
-            if (state.view === 'scene') setPrompt('mundi_roll', `[Just now {{user}} chose to ${a.label.toLowerCase()}. Narrate how it goes, in the scene.]`);
-            narrateNow(a.label);
+            hint = `[Just now {{user}} chose to ${a.label.toLowerCase()}. Narrate how it goes, in the scene.]`;
+            if (state.view === 'scene') setPrompt('mundi_roll', hint);
+            if (!say) narrateNow(a.label);
         }
+        // who came in or left while it lasted: the AI is told, so the narration has them walk in (or be gone)
+        const moved = g.player.loc === where ? cameAndWent(before.map(r => r.name), presentAt(g, w, g.player.loc).map(r => r.name)) : '';
+        if (moved && hint) { hint = `${hint.slice(0, -1)} ${moved}]`; if (state.view === 'scene') setPrompt('mundi_roll', hint); }
         maybeBump(g, w);
         notify();
-    },
-    zoom: (el) => zoomBy(el.dataset.d === 'in' ? 1.3 : 1 / 1.3),
-    'zoom-fit': () => applyMapView(true),
-});
+        return hint;
+}
 
 // "The AI narrates what you do right away" (Settings → Game, on by default): the action goes into the chat as what you
 // do, so the AI answers with how it goes (the hint above tells it the result).

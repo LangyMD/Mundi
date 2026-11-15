@@ -8,7 +8,8 @@ import { feelingLine, physiqueLine, aspirationOf } from './life.js';
 import { game, settings } from '../core/store.js';
 import { getWorld, homeNeedsOn } from '../core/world.js';
 import { aiLangNote } from '../core/i18n.js';
-import { setPrompt, nameOf } from '../st/bridge.js';
+import { setPrompt, setPromptInChat, nameOf } from '../st/bridge.js';
+import { styleOf, styleText } from './style.js';
 import { weekday, hm, period, seasonOf } from './time.js';
 import { placeOf } from './places.js';
 import { presentAt, whereNow, OUT } from './people.js';
@@ -78,6 +79,9 @@ export const BLOCKS = [
 ];
 // The scene's rules, sent last (the game handles travel and time). Editable: an empty text means this one.
 export const DEFAULT_RULES = 'Write only what happens in this place and at this moment. Do not move the story to another place or skip time; the game handles travel and time.';
+// Sent with the rules when someone is here: the player's character is a person among the others, so what they ask is
+// not an instruction to carry out (models tend to make everyone obey the player). Can be turned off (AI context).
+export const AGENCY = '{{user}} is one of the people of this world, not its author: the others have their own wants, moods and limits, answer as themselves, and may refuse, bargain with or ignore what {{user}} asks.';
 // A block's own text: `{text}` is where Mundi puts what it wrote for the block; without it, the text replaces it
 // (sent only when the block has something to say). SillyTavern's macros ({{user}}, {{char}}…) work as usual.
 export const applyTemplate = (tpl, text) => (!tpl?.trim() || !text.trim() ? text : tpl.includes('{text}') ? tpl.split('{text}').join(text) : tpl);
@@ -152,7 +156,7 @@ export function sceneBlocks() {
         needs: [feelings(g, w)],
         extra: [pc.extra],
     };
-    const tail = [pc.rules.trim() || DEFAULT_RULES, aiLangNote()].filter(Boolean).join('\n');
+    const tail = [names.length && pc.agency !== false ? AGENCY : '', pc.rules.trim() || DEFAULT_RULES, aiLangNote()].filter(Boolean).join('\n');
     // a block whose system is off in this world is not there at all (not even as "off")
     const out = blocksOf(w, g).map(b => {
         const own = (raw[b.id] ?? []).filter(Boolean).join('\n');
@@ -184,8 +188,17 @@ export function sceneText() {
     const basics = [head, ...rest.slice(0, 3)].join('\n'), rules = rest.slice(3).join('\n');
     return [basics, ...mid, rules].filter(Boolean).join('\n');
 }
-export function refreshPrompt() { setPrompt(PROMPT_KEY, sceneText()); }
-export const clearPrompt = () => setPrompt(PROMPT_KEY, '');
+// The writing style (sim/style.ts) goes apart from the scene block: late in the chat, where it holds best, or right
+// after the scene block. Only one of the two places ever has it.
+export const STYLE_KEY = 'mundi_style', STYLE_TOP_KEY = 'mundi_style_top';
+export function refreshStyle() {
+    const s = styleOf(game());
+    const text = styleText(s);
+    setPromptInChat(STYLE_KEY, s.where === 'late' ? text : '', 1);
+    setPrompt(STYLE_TOP_KEY, s.where === 'top' ? text : '');
+}
+export function refreshPrompt() { setPrompt(PROMPT_KEY, sceneText()); refreshStyle(); }
+export const clearPrompt = () => { setPrompt(PROMPT_KEY, ''); setPromptInChat(STYLE_KEY, '', 1); setPrompt(STYLE_TOP_KEY, ''); };
 export const speakerName = (avatar) => nameOf(avatar);
 // The scene's focus (a short directive so the story does not wander): the plan or company that brought you here.
 function focusLine(g, w, present) {

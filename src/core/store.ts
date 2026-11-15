@@ -29,6 +29,10 @@ export interface UiPrefs {
     /** weather sounds (the rain), apart from the interface sounds */ weatherSound: boolean; weatherVolume: number;
     /** a thing you do in a scene (shower, cook…): the AI narrates it right away */ narrateActions: boolean;
     /** characters' texts (answers to invitations, letters…) written by the AI; off: short ready-made replies */ aiTexts: boolean;
+    /** something you write that Mundi has an action for ("I take a shower"): 'ask' offers to start it (default), 'auto' starts it when sure, 'off' never */ typedActions?: 'off' | 'ask' | 'auto';
+    /** Expand (the AI writes your short note out as your line): 'button' shows it to you first (default), 'auto' on every send, 'off' no button */ expand?: 'off' | 'button' | 'auto';
+    /** asking something of someone: the AI is told how willing they are, from the game's numbers (on unless false) */ willing?: boolean;
+    /** the message box: the Say / Do / Story / See buttons, the buttons plus Free, or free text only (core/compose.ts) */ inputStyle?: 'buttons' | 'both' | 'free';
     hudAutoHide: boolean; dialogOpacity: number; accent: string;
     layout: 'vn' | 'classic' | 'cards'; vn: 'box' | 'nobox' | 'subtitle';   // how the scene shows the conversation
     dialogPos?: 'center' | 'left'; spriteSize?: number; spriteY?: number; spriteW?: number; cardMode?: boolean;
