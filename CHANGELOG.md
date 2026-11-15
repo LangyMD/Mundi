@@ -5,6 +5,11 @@
 - **Fixed: a busy place narrated as empty.** With nobody you know in a place, the narrator (and the scene prompt)
   said nobody was there, even when the place was busy. Now the AI is told that nobody you know is there but
   strangers are around as background: unnamed, and not speaking to you. An empty or closed place is still empty.
+- **Willow Lane (Porto Alto):** the default world has a new district, Willow Lane, reached from Midtown like Maple
+  Heights: 6 homes and 6 public places (school, café, market, pub, community center, park) with 93 rooms on floor
+  plans, 15 new people, and day and night pictures for every room, building and floor. It is the first part of a
+  built-in world that uses rooms inside places and homes. The district's map picture is a plain layout drawing for
+  now, and the rooms of homes are edited in the world file (the world editor has no screen for them yet).
 - **Rooms inside homes:** a world file can give homes rooms too (`homes.plans`, named per address by
   `homes.zones[].interiors`, or `interior` on a kind of home). Your home and other people's then have a floor plan
   like a building. Bedrooms are handed to the household (a character can name theirs; a couple's room holds two; a

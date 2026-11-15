@@ -292,7 +292,8 @@
    "pinecrest",
    "greenvalley",
    "maple",
-   "palmcoast"
+   "palmcoast",
+   "willow"
   ],
   "places": [
    "downtown",
@@ -341,7 +342,48 @@
    "pl_cafes",
    "pl_trails",
    "cinema",
-   "gym"
+   "gym",
+   "wl_cafe",
+   "wl_cafe_counter",
+   "wl_cafe_kitchen",
+   "wl_cafe_restroom",
+   "wl_cafe_office",
+   "wl_cafe_patio",
+   "wl_market",
+   "wl_market_lot",
+   "wl_market_floor",
+   "wl_market_deli",
+   "wl_market_stock",
+   "wl_pub",
+   "wl_pub_bar",
+   "wl_pub_pool",
+   "wl_pub_kitchen",
+   "wl_pub_booths",
+   "wl_pub_garden",
+   "wl_pub_restrooms",
+   "wl_cc",
+   "wl_cc_pool",
+   "wl_cc_mlocker",
+   "wl_cc_wlocker",
+   "wl_cc_office",
+   "wl_cc_lobby",
+   "wl_cc_gym",
+   "wl_cc_studio",
+   "wl_cc_meeting",
+   "wl_park",
+   "wl_park_playground",
+   "wl_park_pond",
+   "wl_park_court",
+   "wl_park_lawn",
+   "wl_park_dogrun",
+   "wl_park_restrooms",
+   "wl_school",
+   "wl_school_classroom",
+   "wl_school_cafeteria",
+   "wl_school_gym",
+   "wl_school_staff",
+   "wl_school_office",
+   "wl_school_playground"
   ],
   "zones": [
    "downtown",
@@ -352,7 +394,13 @@
    "pc_homes",
    "gv_homes",
    "mh_apts",
-   "pl_apts"
+   "pl_apts",
+   "wl_h1",
+   "wl_h6",
+   "wl_h2",
+   "wl_h5",
+   "wl_h3",
+   "wl_h4"
   ],
   "homeKinds": [
    "apartment",
@@ -401,7 +449,14 @@
    "x-guitar",
    "x-drinks",
    "x-browse",
-   "x-readbook"
+   "x-readbook",
+   "wl-swim",
+   "wl-yoga",
+   "wl-pool",
+   "wl-ducks",
+   "wl-hoops",
+   "wl-garden",
+   "wl-laundry"
   ],
   "occupations": [
    "barista",
@@ -447,7 +502,13 @@
    "chef",
    "usher",
    "footballer",
-   "pharmacy"
+   "pharmacy",
+   "wl_cafehand",
+   "wl_clerk",
+   "wl_bartender",
+   "wl_frontdesk",
+   "wl_instructor",
+   "wl_teacher"
   ],
   "courses": [
    "cooking",
@@ -477,7 +538,9 @@
    "office",
    "early",
    "night",
-   "student"
+   "student",
+   "wl_homebody",
+   "wl_remote"
   ],
   "people": [
    "Bianca",
@@ -489,7 +552,22 @@
    "Sofia",
    "Jade",
    "Elena",
-   "Rosa"
+   "Rosa",
+   "Dan Carter",
+   "Lisa Carter",
+   "Mason Carter",
+   "Lily Carter",
+   "Maribel Delgado",
+   "Theo Banks",
+   "Priya Nair",
+   "Jordan Reyes",
+   "Sam Kowalski",
+   "Ellie Park",
+   "Victor Hale",
+   "Celeste Hale",
+   "Peggy Olsen",
+   "Nora Whitfield",
+   "Frank Doyle"
   ],
   "apps": [
    "grimoire"
@@ -538,7 +616,13 @@
    "chef": 3,
    "usher": 3,
    "footballer": 3,
-   "pharmacy": 3
+   "pharmacy": 3,
+   "wl_cafehand": 4,
+   "wl_clerk": 4,
+   "wl_bartender": 4,
+   "wl_frontdesk": 4,
+   "wl_instructor": 3,
+   "wl_teacher": 4
   }
  },
  "urban": {
