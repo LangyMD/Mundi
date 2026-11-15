@@ -399,7 +399,9 @@
    "x-workout",
    "x-run",
    "x-guitar",
-   "x-drinks"
+   "x-drinks",
+   "x-browse",
+   "x-readbook"
   ],
   "occupations": [
    "barista",
@@ -442,7 +444,10 @@
    "associate",
    "musician",
    "illustrator",
-   "chef"
+   "chef",
+   "usher",
+   "footballer",
+   "pharmacy"
   ],
   "courses": [
    "cooking",
@@ -530,7 +535,10 @@
    "associate": 3,
    "musician": 3,
    "illustrator": 3,
-   "chef": 3
+   "chef": 3,
+   "usher": 3,
+   "footballer": 3,
+   "pharmacy": 3
   }
  },
  "urban": {
@@ -640,7 +648,9 @@
    "x-workout",
    "x-run",
    "x-guitar",
-   "x-drinks"
+   "x-drinks",
+   "x-browse",
+   "x-readbook"
   ],
   "occupations": [
    "barista",
@@ -683,7 +693,9 @@
    "associate",
    "musician",
    "illustrator",
-   "chef"
+   "chef",
+   "footballer",
+   "pharmacy"
   ],
   "courses": [
    "cooking",
@@ -771,7 +783,9 @@
    "associate": 3,
    "musician": 3,
    "illustrator": 3,
-   "chef": 3
+   "chef": 3,
+   "footballer": 3,
+   "pharmacy": 3
   }
  },
  "house": {

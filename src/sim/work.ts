@@ -126,11 +126,22 @@ export const WORK_MODES: { id: WorkMode; name: string; desc: string; icon: strin
     { id: 'social', name: 'Chat with coworkers', desc: 'Better mood, closer to the people who work there. Slower promotion.', icon: '💬' },
     { id: 'easy', name: 'Take it easy', desc: 'Less tiring. Promotion barely moves, and the boss may notice.', icon: '😌' },
 ];
+// The day a shift belongs to: a night shift that goes on past midnight is still the day before's.
+const workDay = (g: Save, o: Occupation) => { const [a, b] = o.hours ?? [0, 24]; return a > b && hour(g) < b ? g.day - 1 : g.day; };
+/** The hours of work left for today: a shift's worth a day. */
+export function shiftLeft(g: Save, o: Occupation): number {
+    const d = (g.player.job as any)?.worked as { day: number; hours: number } | undefined;
+    return Math.max(0, o.shift - (d && d.day === workDay(g, o) ? d.hours : 0));
+}
 // `hours`: a shorter shift (leaving early for a date): pay, tiredness and progress are for the hours worked.
 export function workShift(g: Save, w: WorldDef, mode: WorkMode = 'normal', hours?: number): string[] {
     const j = g.player.job; const o = jobDef(w, j?.id);
     if (!j || !o) return [];
-    const h = Math.max(1, Math.min(o.shift, Math.round(hours ?? o.shift)));
+    // one shift's worth of hours a day (a shorter shift leaves the rest for later)
+    const left = shiftLeft(g, o);
+    if (left <= 0) return ['You have already worked a full shift today.'];
+    const h = Math.max(1, Math.min(o.shift, left, Math.round(hours ?? o.shift)));
+    (j as any).worked = { day: workDay(g, o), hours: o.shift - left + h };
     const part = h / o.shift;
     const out = advance(g, w, h * 60);
     const k = mode === 'hard' ? 1.35 : mode === 'easy' ? 0.6 : 1;

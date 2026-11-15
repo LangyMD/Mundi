@@ -29,7 +29,7 @@ import { stayOf } from './events.js';
 import { actionSound, lifeSound } from './sfx.js';
 import { refreshPrompt } from '../sim/prompt.js';
 import { applyAction, canAfford, money, actionsHere, addStatus, tooTired } from '../sim/needs.js';
-import { shiftsToPromote, isOpen, fits, hire, rankOf, pendingBranch } from '../sim/work.js';
+import { shiftsToPromote, isOpen, fits, hire, rankOf, pendingBranch, shiftLeft } from '../sim/work.js';
 import { advance, weekday, hm } from '../sim/time.js';
 import { syncScene } from '../sim/game.js';
 import { endVisit } from '../sim/visits.js';
@@ -580,6 +580,10 @@ Object.assign(ACT, {
         const job = g.player.job && w.occupations.find(o => o.id === g.player.job.id);
         if (!job || !isOpen(g, job)) {
             toast('The place is closed now.', 'info');
+            return;
+        }
+        if (shiftLeft(g, job) <= 0) {
+            toast('You have already worked a full shift today.', 'info');
             return;
         }
         const tired = tooTired(g, w, job.cost ?? {}, 'work a shift');
