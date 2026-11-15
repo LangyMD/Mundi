@@ -198,7 +198,7 @@ export interface WorldDef {
     /** `kinds.<kind>.bills`: what each kind of home pays a week for each expense (by expense id).
      *  `expenses`: the bills besides the rent (water, power, firewood, taxes…); each `blocks` the actions it stops while
      *  it is a week unpaid. Without it, a world has water and power. */
-    homes: { zones: HomeZone[]; kinds: Record<string, { name: string; desc: string; image?: string; images?: Record<string, string>; bills?: Record<string, number>; /** the rooms of every home of this kind (sim/interiors.ts) */ interior?: HomePlan }>;
+    homes: { zones: HomeZone[]; kinds: Record<string, { name: string; desc: string; image?: string; images?: Record<string, string>; bills?: Record<string, number>; /** the rooms of every home of this kind (sim/interiors.ts): a plan of its own, or the id of one in `plans` */ interior?: HomePlan | string }>;
         /** Plans of homes with rooms, by id; an address names its plan in `zones[].interiors` ({ spot index: plan id }). */
         plans?: Record<string, HomePlan>;
         expenses?: { id: string; name: string; icon?: string; blocks?: string[]; cut?: string; back?: string }[] };
