@@ -384,5 +384,46 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     g.player.loc = 'home:player'; needs.applyAction(g, modern, solo);
     ok(g.player.stats.intimacy === 60, 'private time fills some of it');
 }
+// the people of the world have needs of their own
+{
+    const npc = await D('sim/npcneeds.js'); const intent = await D('sim/intent.js');
+    const run = () => { seed(4); const g = open(fixture('v0.1.0-modern.json')); const worst = {}; let zeroHours = 0, n = 0;
+        for (let h = 0; h < 14 * 24; h++) { time.advance(g, modern, 60); for (const r of Object.values(g.cast)) { const s = npc.npcOf(g, modern, r); n++; for (const k of npc.NPC_NEEDS) { if (s.n[k] <= 0) zeroHours++; worst[k] = Math.min(worst[k] ?? 100, s.n[k]); } } }
+        return { g, zeroHours, n, worst }; };
+    const t0 = Date.now(); const a = run(); const ms = Date.now() - t0; const b = run();
+    ok(JSON.stringify(a.g.npc) === JSON.stringify(b.g.npc), 'the same save and the same hours give the same people');
+    ok(Object.keys(a.g.npc).length === Object.keys(a.g.cast).length && Object.values(a.g.npc).every(s => npc.NPC_NEEDS.every(k => s.n[k] >= 0 && s.n[k] <= 100)), 'everyone has needs, all in range');
+    ok(a.zeroHours / (a.n * 5) < 0.02, `over two weeks people look after themselves (${a.zeroHours} need-hours at zero of ${a.n * 5})`);
+    ok(a.worst.hunger > 5, `nobody starves (${a.worst.hunger})`);
+    ok(ms < 4000, `two weeks of everyone's needs is quick (${ms} ms)`);
+    // a work day leaves its mark
+    const g = a.g; const who = Object.values(g.cast).find(r => modern.occupations.some(o => o.id === r.occupation) && r.routine.weekday.some(s => s[1] === 'work'));
+    const steps = who.routine.weekday; const start = steps.find(s => s[1] === 'work')[0]; const end = steps[steps.findIndex(s => s[1] === 'work') + 1]?.[0] ?? 23;
+    const mon = g.day + ((8 - ((g.day - 1) % 7) - 1) % 7) + 1;   // a weekday morning
+    const dayOf = (d) => ((d - 1) % 7 >= 5 ? d + 2 : d);
+    at(g, dayOf(mon), start * 60); time.advance(g, modern, 1); const e0 = npc.npcOf(g, modern, who).n.energy;
+    time.advance(g, modern, (end - start) * 60);
+    const e1 = npc.npcOf(g, modern, who).n.energy;
+    ok(e1 < e0 && /work/.test(npc.npcDay(g, modern, who)), `a shift costs energy and is part of their day (${e0} → ${e1}, "${npc.npcDay(g, modern, who)}")`);
+    // the AI is told, in a few words; the engine uses it
+    g.npc[who.avatar].n = { hunger: 80, energy: 8, social: 80, fun: 80, hygiene: 80 };
+    ok(/exhausted/.test(npc.npcLine(g, modern, [who])) && /Background only/.test(npc.npcLine(g, modern, [who])), 'the AI is told who is exhausted, as background');
+    ok(npc.npcWilling(g, modern, who).delta < 0, 'someone exhausted is less willing');
+    const ask = { size: 'medium', order: false }; who.met = true;
+    const tired = intent.willingness(g, modern, who, ask).score;
+    g.npc[who.avatar].n.energy = 80;
+    ok(intent.willingness(g, modern, who, ask).score > tired && !npc.npcLine(g, modern, [who]).includes('exhausted'), 'rested, they are more willing again');
+    g.npc[who.avatar].n = { hunger: 80, energy: 80, social: 5, fun: 80, hygiene: 80 };
+    ok(npc.npcWilling(g, modern, who).delta > 0 && /lonely/.test(npc.npcLine(g, modern, [who])), 'someone lonely is glad of company');
+    // an old save: people start as a person usually is at that hour; a long absence is not lived hour by hour
+    const g2 = open(fixture('v0.1.0-modern.json')); ok(!g2.npc, 'an old save has no needs for its people');
+    const s0 = npc.npcOf(g2, modern, Object.values(g2.cast)[0]);
+    ok(npc.NPC_NEEDS.every(k => s0.n[k] >= 20 && s0.n[k] <= 100), 'they start mid-life, not empty');
+    g2.day += 400; const t1 = Date.now(); npc.npcOf(g2, modern, Object.values(g2.cast)[0]);
+    ok(Date.now() - t1 < 200, 'a year later, only the last two days are lived through');
+    // the system can be turned off
+    const off = structuredClone(modern); off.id = 'nonpc'; off.features = { ...(off.features ?? {}), npclife: false }; W.registerWorld(off);
+    ok(!npc.npcLine(g, off, [who]) && npc.npcWilling(g, off, who).delta === 0 && !npc.npcFeels(g, off, who).length, 'off in a world: nothing is said or used');
+}
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

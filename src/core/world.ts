@@ -345,7 +345,7 @@ export const activeStatuses = (w: WorldDef, g?: unknown) => (isScenario(w) && g 
 // the phone or journal, the AI's prompt, and the engine stops running it. What the save holds for it is kept, so
 // turning it back on picks up where it was. `apps`: the apps it owns; `blocks`: the prompt blocks it owns.
 export type SystemId = 'living' | 'neighbors' | 'consults' | 'needs' | 'jobs' | 'bills' | 'courses' | 'shop' | 'breakdowns' | 'plans' | 'romance' | 'family' | 'social' | 'rumors' | 'diary' | 'goals'
-    | 'habits' | 'reputation' | 'identity' | 'pets' | 'mentors' | 'letters' | 'festivals' | 'factions' | 'faith' | 'legends' | 'talents' | 'institutions' | 'trade' | 'property' | 'banks' | 'farming' | 'auctions' | 'taxes' | 'skies' | 'ecology' | 'debuffs' | 'injuries' | 'fatigue' | 'elements' | 'mounts' | 'prison' | 'towers' | 'sentient' | 'crafting' | 'trophies' | 'contracts' | 'soulbound' | 'dice' | 'pins' | 'events' | 'hobbies';
+    | 'habits' | 'reputation' | 'identity' | 'pets' | 'mentors' | 'letters' | 'festivals' | 'factions' | 'faith' | 'legends' | 'talents' | 'institutions' | 'trade' | 'property' | 'banks' | 'farming' | 'auctions' | 'taxes' | 'skies' | 'ecology' | 'debuffs' | 'injuries' | 'fatigue' | 'elements' | 'mounts' | 'prison' | 'towers' | 'sentient' | 'crafting' | 'trophies' | 'contracts' | 'soulbound' | 'dice' | 'pins' | 'events' | 'hobbies' | 'npclife';
 export interface HabitDef { id: string; name: string; desc?: string; trait: string; actions?: string[]; tags?: string[]; hours?: [number, number]; count: number; days: number; lose?: number; daily?: Record<string, number> }
 export interface CityEventDef {
     id: string; name: string; icon?: string; desc?: string; place: string;
@@ -428,6 +428,7 @@ export const SYSTEMS: SystemDef[] = [
     { id: 'letters', name: 'Letters from afar', desc: 'friends in other towns never write, and distance never cools a friendship.', apps: [], blocks: [] },
     { id: 'festivals', name: 'Festivals', desc: 'no festivals in the calendar.', apps: [], blocks: [] },
     { id: 'events', name: 'City events', desc: 'no shows, matches or fairs in the city calendar.', apps: [], blocks: [] },
+    { id: 'npclife', name: 'People have needs', desc: 'the people of the world are never tired, hungry, lonely or bored.', apps: [], blocks: ['npcstate'] },
     { id: 'hobbies', name: 'Hobbies', desc: 'practice never levels up a hobby (guitar, painting…), and no job asks for one.', apps: [], blocks: [] },
     { id: 'factions', name: 'Factions and guilds', desc: 'no guilds, orders, gangs or kingdoms to join or lead.', apps: ['factions'], blocks: [] },
     { id: 'legends', name: 'Legends', desc: 'your deeds never become tales that travel and grow.', apps: [], blocks: [] },

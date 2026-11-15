@@ -2,6 +2,12 @@
 
 ## Unreleased (this fork)
 
+- **The people of the world have needs:** hunger, energy, company, fun and hygiene, moved hour by hour by what their
+  day already has them doing (asleep, at work, at home, out), each person a little different. They look after
+  themselves, so what shows is the texture of a day: tired after a shift, hungry, bored, lonely. The AI is told how
+  the people in the scene are doing ("How they are doing", AI context), the phone shows it on their profile, and the
+  engine uses it: someone exhausted is less willing to do what you ask. No AI call. Where people go is still their
+  routine. Can be turned off per world (People have needs).
 - **Who you are changes your needs:** traits, habits that became traits and hobby levels now change how fast needs
   drop and how much fills them (a cheerful person keeps their mood longer, an athletic one has more energy, a good
   cook gets more from a home meal, a film lover enjoys the cinema more), and how fast friendships and romance grow

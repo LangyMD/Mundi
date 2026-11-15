@@ -15,6 +15,7 @@ import { isWorking } from './plans.js';
 import { onAction } from './hooks.js';
 import { note } from './facts.js';
 import { playerHomeId } from './places.js';
+import { npcWilling } from './npcneeds.js';
 
 export type CloseKind = 'hug' | 'cuddle' | 'kiss' | 'love' | 'solo';
 interface CloseDef {
@@ -77,7 +78,7 @@ export function closeOutcome(g: Save, w: WorldDef, a: { id: string }): CloseResu
     const fade = cfg(g).fade !== false;
     if (p.kind === 'solo') return { ok: true, toast: '', hint: `[{{user}} took some private time alone. ${fade ? 'Do not describe it; pick the story up afterwards.' : 'Narrate it only as far as the tone of this story allows.'}]` };
     const r = g.cast[p.avatar]; if (!r) return null;
-    const d = CLOSE[p.kind]; const s = score(g, r.avatar); const l = d.label(r.name); const what = l.charAt(0).toLowerCase() + l.slice(1);
+    const d = CLOSE[p.kind]; const tired = Math.min(0, npcWilling(g, w, r).delta); const s = score(g, r.avatar) + (p.kind === 'hug' ? 0 : tired); const l = d.label(r.name); const what = l.charAt(0).toLowerCase() + l.slice(1);
     const busy = p.kind !== 'hug' && isWorking(w, r, nowAbs(g));
     const sure = s >= d.need + 10, never = s < d.need - 10 || busy;
     const ok = !never && (sure || coin(`${g.world}|${r.avatar}|${p.kind}|${g.day}`) < (s - (d.need - 10)) / 20);
@@ -91,7 +92,7 @@ export function closeOutcome(g: Save, w: WorldDef, a: { id: string }): CloseResu
     for (const k of Object.keys(closeState(g).no)) if (closeState(g).no[k] < g.day) delete closeState(g).no[k];
     if (d.no.romance) addRomance(g, r.avatar, d.no.romance);
     if (d.no.approval) approve(g, r.avatar, d.no.approval);
-    const why = busy ? `${r.name} is at work` : s < d.need - 10 ? `they are not that close (yet)` : `${r.name} is not in the mood right now`;
+    const why = busy ? `${r.name} is at work` : tired && s - tired >= d.need - 10 ? npcWilling(g, w, r).why : s < d.need - 10 ? `they are not that close (yet)` : `${r.name} is not in the mood right now`;
     return { ok, toast: `${r.name} turned it down.`, hint: `[Just now {{user}} tried to ${what}. ${r.name} did not want that: ${why}. ${r.name} turns it down, in their own way (gently, awkwardly or firmly, as their personality decides), and does not give in if asked again. Narrate ${r.name}'s reaction.]` };
 }
 // Welcomed: the two of you grow closer, and it is remembered.

@@ -3,6 +3,9 @@ import { safeUrl } from '../core/safe.js';
 // The phone (Modern world): messages, people, jobs, bank and homes. Opens over the map or the scene.
 import { askingFrom, answerAdvice } from '../sim/happenings.js';
 import { approvalOf, approvalWord } from '../sim/living.js';
+import { npcDay, npcFeels } from '../sim/npcneeds.js';
+// How they are doing right now, from their own day (tired, just off work…); nothing to say: nothing shown.
+const nowHtml = (g, r) => { const w = getWorld(g.world); const bits = w ? [npcDay(g, w, r), ...npcFeels(g, w, r)].filter(Boolean) : []; return bits.length ? `<small class="mu-muted">Right now: ${esc(bits.join(', '))}</small>` : ''; };
 import { missingCourses, interviewChance, triedToday } from '../sim/skills.js';
 import { profileApp } from './courses.js';
 import { billList, billAmount, billName, owed, isCut, daysLeft, payBill, payOf, priceOf } from '../sim/bills.js';
@@ -278,7 +281,7 @@ function personApp(g, w) {
     const b = bondOf(g, r.avatar);
     const partner = isPartner(g, r.avatar);
     return `${head(esc(contactName(g, r)), 'people')}<div class="mu-ph-body">
-        <div class="mu-ph-profile"><img src="${esc(thumb(r.avatar))}" alt=""><b data-notr>${esc(r.name)}</b>${nicks(g)[r.avatar] ? `<small data-notr>${esc(T('inYourDevice', nicks(g)[r.avatar]))}</small>` : ''}<small>${bondLabel(g, r.avatar)}</small>${relBar(r.avatar)}<small>${approvalWord(approvalOf(g, r.avatar))}</small>${feelingsHtml(g, r.avatar)}</div>
+        <div class="mu-ph-profile"><img src="${esc(thumb(r.avatar))}" alt=""><b data-notr>${esc(r.name)}</b>${nicks(g)[r.avatar] ? `<small data-notr>${esc(T('inYourDevice', nicks(g)[r.avatar]))}</small>` : ''}<small>${bondLabel(g, r.avatar)}</small>${relBar(r.avatar)}<small>${approvalWord(approvalOf(g, r.avatar))}</small>${feelingsHtml(g, r.avatar)}${nowHtml(g, r)}</div>
         <button data-act="ph-thread" data-who="${esc(r.avatar)}">${icon(LETTERS ? 'send' : 'chat')}<span>${T('writeMessage')}</span></button>
         ${featureOn(w, 'plans') ? planForm(g, w, r.avatar) : ''}
         ${partner ? '<p class="mu-ph-love">You are together.</p>' : b >= PARTNER_BOND && !romanceBlocked(g, P.who) && systemOn(w, 'romance') ? '<button data-act="ph-partner">Ask to be together</button>' : ''}

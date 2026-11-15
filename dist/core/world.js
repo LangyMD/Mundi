@@ -172,6 +172,7 @@ export const SYSTEMS = [
     { id: 'letters', name: 'Letters from afar', desc: 'friends in other towns never write, and distance never cools a friendship.', apps: [], blocks: [] },
     { id: 'festivals', name: 'Festivals', desc: 'no festivals in the calendar.', apps: [], blocks: [] },
     { id: 'events', name: 'City events', desc: 'no shows, matches or fairs in the city calendar.', apps: [], blocks: [] },
+    { id: 'npclife', name: 'People have needs', desc: 'the people of the world are never tired, hungry, lonely or bored.', apps: [], blocks: ['npcstate'] },
     { id: 'hobbies', name: 'Hobbies', desc: 'practice never levels up a hobby (guitar, painting…), and no job asks for one.', apps: [], blocks: [] },
     { id: 'factions', name: 'Factions and guilds', desc: 'no guilds, orders, gangs or kingdoms to join or lead.', apps: ['factions'], blocks: [] },
     { id: 'legends', name: 'Legends', desc: 'your deeds never become tales that travel and grow.', apps: [], blocks: [] },
