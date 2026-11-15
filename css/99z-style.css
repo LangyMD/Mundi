@@ -7,3 +7,9 @@
 #mundi-root .mu-style-presets select { flex: 0 1 200px; }
 #mundi-root .mu-style-presets input[type="text"] { flex: 1 1 180px; min-width: 140px; }
 #mundi-root .mu-style > .mu-lib-text { white-space: pre-wrap; margin-top: 4px; }
+/* The message box: an action found in what you wrote, waiting for your word */
+#mundi-root .mu-composer > .mu-typed { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; margin-bottom: 6px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 14%, transparent); font-size: 13px; }
+#mundi-root .mu-typed > span { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
+#mundi-root .mu-typed > span small { opacity: .75; }
+#mundi-root .mu-typed .mu-ic { width: 14px; height: 14px; }
+#mundi-root .mu-typed button { padding: 3px 10px !important; font-size: 12px; }

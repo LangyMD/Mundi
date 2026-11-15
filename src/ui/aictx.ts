@@ -59,6 +59,7 @@ export function tabAiContext(): string {
         <section class="mu-wc-sec"><h4>Rules of the scene</h4>
             <p class="mu-muted">Sent last, after everything else. Empty: Mundi's own rules (shown greyed). The note about the language of replies is added by itself.</p>
             <textarea class="mu-aic-text" rows="3" data-input="aic-rules" data-focus="aic-rules" placeholder="${esc(DEFAULT_RULES)}">${esc(pc.rules)}</textarea>
+            <label class="mu-check"><input type="checkbox" data-input="aic-agency" ${pc.agency !== false ? 'checked' : ''}><span>Your character is one of the people, not their author<small>Sent before the rules when someone is with you: the others have their own wants and may refuse what you ask. Off: nothing is said about it.</small></span></label>
             ${pc.rules.trim() ? `<button class="mu-ghost" data-act="aic-reset" data-id="rules">${icon('undo')}<span>Back to Mundi's rules</span></button>` : ''}</section>
         <section class="mu-wc-sec"><button class="mu-ghost" data-act="aic-preview">${icon(A.preview ? 'up' : 'down')}<span>${A.preview ? 'Hide the text' : 'Show the text sent now'}</span></button>
             ${A.preview ? `<div class="mu-lib-text is-code" data-notr>${esc(text)}</div>` : ''}</section>`;
@@ -89,6 +90,7 @@ Object.assign(INPUT, {
     },
     // typing: saved and sent right away; the screen catches up on the next redraw
     'aic-text': (el) => { const pc = promptCfg(); const v = (el as unknown as HTMLTextAreaElement).value; if (v.trim()) pc.text[el.dataset.id!] = v; else delete pc.text[el.dataset.id!]; saveSettings(); refreshPrompt(); },
+    'aic-agency': (el) => { promptCfg().agency = el.checked; saveSettings(); refreshPrompt(); notify(); },
     'aic-rules': (el) => { promptCfg().rules = (el as unknown as HTMLTextAreaElement).value; saveSettings(); refreshPrompt(); },
     'aic-extra': (el) => { promptCfg().extra = (el as unknown as HTMLTextAreaElement).value; saveSettings(); refreshPrompt(); },
     'aic-budget': (el) => {

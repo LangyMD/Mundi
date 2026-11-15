@@ -10,6 +10,18 @@
   length, pace, tone, style tags (and your own), how people speak, the narrator's presence and notes become one short
   instruction sent with every reply, late in the prompt. Or send one text of your own, which the AI can write from
   your choices. Styles are kept per game, and can be saved to use in other games.
+- **Write it, and the game does it:** in Do or free text, a line such as "I take a quick shower" is matched to the
+  thing to do here. Mundi offers to do it (time passes, its effects apply), then sends your own line. Questions, plans
+  for later, what you say in quotes and what other people do are left alone. Settings → Game → What you write
+  (offer, do it without asking, or never).
+- **Expand:** a button in the message box. Write a few words ("shrug, say fine") and the AI writes them out as your
+  character's line, which you see and can change before sending. One extra AI call each time.
+- **People are not yours to command:** when you ask or tell someone to do something, the AI is told for that one
+  reply how willing they are, from the game's own numbers (how close you are, what they think of you, whether they
+  are working or it is late, whether it was an order). No AI call. And with every reply, a line says your character
+  is one of the people of the world, not its author (AI context → Rules of the scene).
+- **Who walks in while you do something:** after a thing to do that takes time, the AI is told who came in or left
+  meanwhile, so the narration has them arrive.
 - **A question waiting for its answer** (asking someone out, proposing) no longer gives up early when another
   extension makes background AI calls: only real replies in the chat count as turns.
 
