@@ -2,6 +2,9 @@
 // The conversation IS the group chat: generation, streaming, swipes, regenerate, continue, impersonate,
 // editing and deleting all use SillyTavern's own functions.
 import { isRpg } from '../sim/rpg.js';
+import { placeOf } from '../sim/places.js';
+import { crowdLevel } from '../sim/worldstate.js';
+import { openNow } from '../sim/daynight.js';
 import { hereWith, scenePlace } from '../sim/interiors.js';
 import { lookSprites } from './looksui.js';
 import { setHtml } from '../core/safe.js';
@@ -527,9 +530,11 @@ async function soloNarrate(g: Save, w: WorldDef, text: string, hint = '') {
     try {
         await addUserLine(text);
         const me = personaName();
+        // (a busy place with nobody you know in it is not an empty one)
+        const busy = !placeOf(g, w, g.player.loc)?.home && crowdLevel(g, w, g.player.loc) > 0 && openNow(g, w, g.player.loc);
         const recent = chat().slice(-8).filter((m: any) => !m.is_system).map((m: any) => `${m.is_user ? me : m.name}: ${String(m.mes ?? '').replace(/\s+/g, ' ').slice(0, 300)}`).join('\n');
-        const out = await quiet(`${sceneText().replace(/\{\{user\}\}/g, me)}\n\n${recent}\n\n${hint ? `${hint.replace(/\{\{user\}\}/g, me)}\n` : ''}Narrate what happens next in 2 to 4 sentences, in the second person ("you"), following ${me}'s last line. ${me} is alone: describe only the place, small details, the passing moment and ${me}'s feelings and thoughts. No other character appears, speaks or arrives. Do not write ${me}'s words or decisions.${styleNote(styleOf(g)) ? ` ${styleNote(styleOf(g))}` : ''}${aiLangNote() ? ` ${aiLangNote()}` : ''}`, 260,
-            'You are the quiet narrator of a life simulation. You never bring other characters into the scene.');
+        const out = await quiet(`${sceneText().replace(/\{\{user\}\}/g, me)}\n\n${recent}\n\n${hint ? `${hint.replace(/\{\{user\}\}/g, me)}\n` : ''}Narrate what happens next in 2 to 4 sentences, in the second person ("you"), following ${me}'s last line. ${busy ? `Nobody ${me} knows is here, but the place is not empty: strangers are around as background (unnamed; they do not speak to ${me}). Describe the place, the people in the background, small details, the passing moment and ${me}'s feelings and thoughts. No named character appears, speaks or arrives.` : `${me} is alone: describe only the place, small details, the passing moment and ${me}'s feelings and thoughts. No other character appears, speaks or arrives.`} Do not write ${me}'s words or decisions.${styleNote(styleOf(g)) ? ` ${styleNote(styleOf(g))}` : ''}${aiLangNote() ? ` ${aiLangNote()}` : ''}`, 260,
+            'You are the quiet narrator of a life simulation. You never bring named characters into the scene.');
         if (out.trim()) await narratorLine(out.trim());
         else toast('No answer (is the AI connected?).', 'warn');
     } catch (e: any) { toast(String(e?.message ?? e), 'error'); }
