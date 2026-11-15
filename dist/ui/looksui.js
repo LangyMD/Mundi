@@ -31,7 +31,7 @@ export function dressScene(g, w) {
         const r = by.get(id);
         const own = loc === `home:${r.avatar}`;
         return { ...base, ownHome: own, working: !own && !base.home && !!r.occupation && routineStep(r, nowAbs(g))[1] === 'work' };
-    });
+    }, loc);
 }
 /* ---------- pictures ---------- */
 const cache = new Map(); // "avatar|folder" → its pictures ([]: none)

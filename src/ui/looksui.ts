@@ -29,7 +29,7 @@ export function dressScene(g: Save, w: WorldDef): string[] {
         if (id === PLAYER) return { ...base, ownHome: loc === playerHomeId, asleep: !!g.asleep, working: false };
         const r = by.get(id)!; const own = loc === `home:${r.avatar}`;
         return { ...base, ownHome: own, working: !own && !base.home && !!r.occupation && routineStep(r, nowAbs(g))[1] === 'work' };
-    });
+    }, loc);
 }
 
 /* ---------- pictures ---------- */

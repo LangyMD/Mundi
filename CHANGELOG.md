@@ -2,6 +2,14 @@
 
 ## Unreleased (this fork)
 
+- **Clothes that follow the story (optional AI call):** Settings › AI context › AI calls › "Notice when someone
+  changes clothes in the story". Off by default. "When the lines mention clothes" asks the AI only when the last
+  lines have a clothing word in them (no call otherwise); "After every reply" always asks. The call runs once the
+  characters have answered and only asks who changed into what; the game's record, the pictures and the line for
+  the AI then follow. A change found this way is kept while you stay at that place (half a day at most), then the
+  game dresses the person as the moment asks again.
+- **Your own clothes, by hand:** the game menu has "Your clothes": the kind of outfit, how much of it, and "As the
+  moment asks" to give it back to the game.
 - **Rooms inside homes:** a world file can give homes rooms too (`homes.plans`, named per address by
   `homes.zones[].interiors`, or `interior` on a kind of home). Your home and other people's then have a floor plan
   like a building. Bedrooms are handed to the household (a character can name theirs; a couple's room holds two; a

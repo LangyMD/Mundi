@@ -6,6 +6,8 @@
 import { state, nowAbs } from '../core/store.js';
 export const CATEGORIES = ['everyday', 'formal', 'athletic', 'sleepwear', 'party', 'swimwear', 'hot-weather', 'cold-weather', 'career'];
 export const LAYERS = ['outer', 'normal', 'underwear', 'naked'];
+/** How long clothes changed in the story stay before the game dresses the person again (minutes). */
+export const STORY_HOLD = 12 * 60;
 /** The key of your own character in the looks record. */
 export const PLAYER = '__player';
 // the categories an outer layer exists for (a coat over a swimsuit is not a look)
@@ -20,7 +22,7 @@ export function fixLook(v) {
     let layer = isLayer(v?.layer) ? v.layer : 'normal';
     if (layer === 'outer' && !OUTER.has(category))
         layer = 'normal';
-    return { category, layer, since: Number(v?.since) || 0, why: String(v?.why ?? '').slice(0, 80), ...(v?.lock ? { lock: true } : {}) };
+    return { category, layer, since: Number(v?.since) || 0, why: String(v?.why ?? '').slice(0, 80), ...(v?.lock ? { lock: true } : {}), ...(v?.lock && v?.story ? { story: true, at: String(v?.at ?? '') } : {}) };
 }
 export const looks = (g) => (g.looks ??= {});
 export const lookOf = (g, who) => fixLook(looks(g)[who]);
@@ -79,8 +81,11 @@ export function setLook(g, who, category, layer, why, lock = false) {
     const cur = looks(g)[who] ? lookOf(g, who) : null;
     const next = fixLook({ category, layer, since: nowAbs(g), why, lock });
     if (cur && cur.category === next.category && cur.layer === next.layer) {
-        if (!!cur.lock !== !!next.lock)
-            looks(g)[who] = { ...cur, ...(lock ? { lock: true } : { lock: undefined }) };
+        // (chosen by hand, it is no longer "from the story")
+        if (!!cur.lock !== !!next.lock || cur.story) {
+            const { story: _s, at: _a, lock: _l, ...rest } = cur;
+            looks(g)[who] = { ...rest, ...(lock ? { lock: true } : {}) };
+        }
         return false;
     }
     looks(g)[who] = next;
@@ -89,13 +94,33 @@ export function setLook(g, who, category, layer, why, lock = false) {
     return true;
 }
 // Gives someone's clothes back to the game ("as the moment asks").
-export function unlockLook(g, who) { const l = looks(g)[who]; if (l)
-    delete l.lock; }
+export function unlockLook(g, who) { const l = looks(g)[who]; if (l) {
+    delete l.lock;
+    delete l.story;
+    delete l.at;
+} }
+// Someone changed in the story: the look is kept (as if set by hand) while you stay at this place, for half a day at most.
+export function setStoryLook(g, who, category, layer, at) {
+    const changed = setLook(g, who, category, layer, 'in the story', true);
+    const l = looks(g)[who];
+    if (l) {
+        l.lock = true;
+        l.story = true;
+        l.at = at;
+        l.since = nowAbs(g);
+        l.why = 'in the story';
+    }
+    return changed;
+}
 // The game's own changes, for the given people (and you): everyone not set by hand wears what the moment asks.
 // `ctxOf` builds the facts for one of them (null: leave them as they are). Returns who changed.
-export function autoDress(g, who, ctxOf) {
+// `loc`: where you are now (clothes changed in the story are given back to the game once you are somewhere else).
+export function autoDress(g, who, ctxOf, loc) {
     const changed = [];
     for (const id of who) {
+        const l = looks(g)[id];
+        if (l?.lock && l.story && ((loc !== undefined && l.at !== loc) || nowAbs(g) - (Number(l.since) || 0) > STORY_HOLD))
+            unlockLook(g, id);
         if (looks(g)[id]?.lock)
             continue;
         const c = ctxOf(id);

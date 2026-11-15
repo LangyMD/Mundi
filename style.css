@@ -3928,6 +3928,11 @@ body.mundi-open #completion_prompt_manager_popup {
    can make the click land outside it, like on the gallery's arrows). */
 @keyframes mu-press { 0% { filter: brightness(1); } 35% { filter: brightness(1.32); } 100% { filter: brightness(1); } }
 #mundi-root button:active:not(:disabled):not([aria-disabled="true"]) { animation: mu-press .28s ease-out; }
+/* Your clothes (ui/myclothes.ts): a small dialog from the game menu */
+#mundi-root .mu-myclothes { width: min(520px, calc(100% - 32px)); grid-template-rows: none; overflow: auto; }
+#mundi-root .mu-myclothes p { margin: 0; }
+#mundi-root .mu-myclothes .mu-chips { margin-top: 4px; }
+#mundi-root .mu-myclothes .mu-dlg-btns { justify-content: space-between; }
 /* Rooms inside a place: the floor plan over the scene */
 #mundi-root .mu-rooms { width: min(92vw, 860px); display: grid; gap: 10px; }
 #mundi-root .mu-room-plan { position: relative; width: 100%; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, .04) center / cover no-repeat; border: 1px solid var(--line); }

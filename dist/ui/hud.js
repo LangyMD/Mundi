@@ -22,6 +22,7 @@ import { levelChip } from './rpgui.js';
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 import { personaThumb, personaName, thumb, setPrompt } from '../st/bridge.js';
 import { personaPickHtml } from './scene.js';
+import { myClothesHtml, myLookWords } from './myclothes.js';
 import { outingHtml } from './outing.js';
 import { residentsHtml } from './residents.js';
 import { guestDialogsHtml } from './guestsui.js';
@@ -140,6 +141,7 @@ function corner(g, w) {
             ${isScenario(w) && isOuting(g.player.loc) ? `<button data-act="out-bg-open">${icon('image')}<span>Background</span></button>` : ''}
             ${isScenario(w) ? `<button data-act="res-open">${icon('users')}<span>Who lives here</span></button>` : ''}
             ${isScenario(w) ? `<button data-act="sc-open" data-v="persona"><span class="mh-drawer-mew"><img class="mh-drawer-me" src="${esc(personaThumb())}" alt=""></span><span>Your persona<small data-notr>${esc(personaName())}</small></span></button>` : ''}
+            <button data-act="mc-open">👗<span>Your clothes<small>${esc(myLookWords(g))}</small></span></button>
             <button data-act="hud-look">${icon('palette')}<span>Chat look</span></button>
             <button data-act="open-settings">${icon('gear')}<span>Settings</span></button>
             <button data-act="to-menu" data-sfx="back">${icon('back')}<span>Main menu</span></button></nav>` : ''}
@@ -227,7 +229,7 @@ export function hudHtml() {
     if (!g || !w)
         return '';
     // Home: no card of your own (no money, no needs); your persona is in the menu, as in a chat
-    return `${isScenario(w) ? '' : personaCard(g, w)}${houseBar(g, w)}${clockCard(g, w)}${corner(g, w)}${eventPanelHtml(g, w)}${hereBar(g, w)}${peopleColumn(g, w)}${actsColumn(g, w)}${phoneButton(w)}${bumpHtml()}${apptReminderHtml(g, w)}${conflictHtml(g, w)}${facePlanHtml()}${customModalHtml()}${skipAskHtml(g, w)}${personaPickHtml()}${isScenario(w) ? `${outingHtml()}${residentsHtml()}${guestDialogsHtml()}` : ''}${doingHtml()}${lifeOverlays()}`;
+    return `${isScenario(w) ? '' : personaCard(g, w)}${houseBar(g, w)}${clockCard(g, w)}${corner(g, w)}${eventPanelHtml(g, w)}${hereBar(g, w)}${peopleColumn(g, w)}${actsColumn(g, w)}${phoneButton(w)}${bumpHtml()}${apptReminderHtml(g, w)}${conflictHtml(g, w)}${facePlanHtml()}${customModalHtml()}${skipAskHtml(g, w)}${personaPickHtml()}${myClothesHtml()}${isScenario(w) ? `${outingHtml()}${residentsHtml()}${guestDialogsHtml()}` : ''}${doingHtml()}${lifeOverlays()}`;
 }
 Object.assign(ACT, {
     'quest-step': (el) => {
