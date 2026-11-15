@@ -2,6 +2,11 @@
 
 ## Unreleased (this fork)
 
+- **A narrator:** This world → AI context → AI calls. When you arrive somewhere, the narrator describes the place at
+  that hour and who is there (one AI call; or a plain line from the game with no call; or nothing). When you do
+  something (a shower, cooking, a film), the narrator tells how it goes instead of whichever character happens to be
+  in the room, and tells who came in or left while it lasted. "A character who is there answers" keeps the old way.
+  If the AI gives no answer, the plain line is used. Not on arrivals from room to room in a Home.
 - **Free text in the message box:** Settings → Game → Message box. Keep the Say / Do / Story / See buttons, add a
   Free mode beside them, or hide the buttons and write freely. Free text is sent exactly as written, so one line can
   mix what you say and do. In free text, a line that starts with `>` steers the story and one that starts with `?`

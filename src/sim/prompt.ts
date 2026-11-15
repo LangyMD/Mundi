@@ -10,6 +10,8 @@ import { getWorld, homeNeedsOn } from '../core/world.js';
 import { aiLangNote } from '../core/i18n.js';
 import { setPrompt, setPromptInChat, nameOf } from '../st/bridge.js';
 import { styleOf, styleText } from './style.js';
+import { NARRATOR_RULE } from './narrate.js';
+import { UI } from '../core/store.js';
 import { weekday, hm, period, seasonOf } from './time.js';
 import { placeOf } from './places.js';
 import { presentAt, whereNow, OUT } from './people.js';
@@ -118,6 +120,8 @@ export function scenarioLines(g: any, w: WorldDef): string[] {
     return [`Home: everything happens in and around this one house; when someone goes out (work, errands, nights out) it is off-screen and only told afterwards.${premise ? ` Premise: ${premise}` : ''}`,
         ...(out.length ? [`Out of the house right now (not in any scene): ${out.join(', ')}.`] : []), homeJobsLine(g), dressLine(g, w), houseLine(g, w)].filter(Boolean);
 }
+// The narrator posts lines of its own (arrivals, things you do) unless both are off or left to the characters.
+const narratorOn = () => { const u = UI() as any; const act = u.narrAction ?? (u.narrateActions === false ? 'off' : 'ai'); return (u.narrArrive ?? 'ai') !== 'off' || act === 'ai' || act === 'engine'; };
 export function sceneBlocks(): Built[] {
     const g = game();
     const w = g && getWorld(g.world);
@@ -156,7 +160,7 @@ export function sceneBlocks(): Built[] {
         needs: [feelings(g, w)],
         extra: [pc.extra],
     };
-    const tail = [names.length && pc.agency !== false ? AGENCY : '', pc.rules.trim() || DEFAULT_RULES, aiLangNote()].filter(Boolean).join('\n');
+    const tail = [names.length && pc.agency !== false ? AGENCY : '', names.length && narratorOn() ? NARRATOR_RULE : '', pc.rules.trim() || DEFAULT_RULES, aiLangNote()].filter(Boolean).join('\n');
     // a block whose system is off in this world is not there at all (not even as "off")
     const out: Built[] = blocksOf(w, g).map(b => {
         const own = (raw[b.id] ?? []).filter(Boolean).join('\n');

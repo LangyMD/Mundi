@@ -2,6 +2,7 @@
 // budget drops the least important blocks first, and the count shows how much of the model's context it takes.
 // The texts are yours to change: each block's own text, the scene's rules, and instructions of your own.
 import { esc, notify, saveSettings, game, settings, UI } from '../core/store.js';
+import { arriveLevel, actionVoice } from './narrator.js';
 import { feedPrefs } from '../sim/feed.js';
 import { getWorld } from '../core/world.js';
 import { ctx } from '../st/bridge.js';
@@ -107,7 +108,8 @@ function aiCallsHtml(): string {
     return `<section class="mu-wc-sec mu-aic">
             <h4>AI calls</h4>
             <p class="mu-muted">Besides the replies to your messages, these are the times Mundi asks the AI for something. Turn off what you don't want (it applies to all your games).</p>
-            ${chk('ui-bool', UI().narrateActions !== false, 'Narrate what you do right away', 'Things to do in a scene (a shower, cooking…): the AI answers with how it goes. One reply each time.', 'narrateActions')}
+            <label class="mu-field"><span>When you arrive somewhere</span><select data-input="ui-str" data-key="narrArrive">${([['ai', 'The narrator describes it (one AI call)'], ['engine', 'A plain line from the game (no AI call)'], ['off', 'Nothing: the scene just opens']] as const).map(([v, l]) => `<option value="${v}" ${arriveLevel() === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+            <label class="mu-field"><span>When you do something (a shower, cooking…)</span><select data-input="ui-str" data-key="narrAction">${([['ai', 'The narrator tells how it goes (one AI call)'], ['reply', 'A character who is there answers (as before)'], ['engine', 'A plain line from the game (no AI call)'], ['off', 'Nothing']] as const).map(([v, l]) => `<option value="${v}" ${actionVoice() === v ? 'selected' : ''}>${l}</option>`).join('')}</select><small class="mu-muted">The narrator also tells who came in or left while it lasted. If the AI gives no answer, the plain line is used.</small></label>
             ${chk('set-diary', st.diaryOnSleep !== false, 'Write the day in the diary when you sleep', 'One call per night: the day becomes a short first-person entry, and the story remembers past days through it.')}
             ${chk('ui-bool', UI().aiTexts !== false, 'Characters write their own texts', 'Answers to your invitations, being stood up, asking your advice, letters from far away. Off: short ready-made replies.', 'aiTexts')}
             <label class="mu-field"><span>Who posts on Chirp</span><select data-input="set-feed">${([['button', 'Only when you tap "New posts"'], ['open', 'New posts each time you open the app'], ['auto', 'The characters, on their own as time passes'], ['react', 'Only you post; they reply']] as const).map(([v, l]) => `<option value="${v}" ${fp.mode === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
