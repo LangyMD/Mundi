@@ -184,5 +184,20 @@ ok(acts().includes('t-wash'), 'a place without rooms: an action that names rooms
     ok(acts2().includes('shower') && acts2().includes('cook'), 'and everything can be done there');
 }
 
+/* ---------- the floor plan button, and no row per room in the things to do ---------- */
+{
+    const RU = await D('ui/roomsui.js');
+    const g3 = open(fixture('v0.1.0-modern.json')); g3.world = 'rooms'; g3.player.loc = 'cafe'; I.settleRoom(g3, w);
+    let rows = RU.roomRows(g3, w);
+    ok(rows.length === 0, `no rows for the rooms (${rows.length})`);
+    const btn = RU.roomsButton(g3, w);
+    ok(btn.includes('data-act="rm-plan"') && btn.includes('mh-mapbtn') && btn.includes('Counter') && btn.includes('4 rooms'), 'the floor plan is a button beside the map');
+    const keep = cafe.interior.rooms; cafe.interior.rooms = keep.map(r => (r.id === 'cafe_restroom' ? { ...r, floor: 'nowhere' } : r));
+    rows = RU.roomRows(g3, w);
+    ok(rows.length === 1 && rows[0].includes('data-id="cafe_restroom"'), 'a room drawn on no floor keeps a row');
+    cafe.interior.rooms = keep;
+    g3.player.loc = 'park'; ok(RU.roomRows(g3, w).length === 0 && RU.roomsButton(g3, w) === '', 'a place without rooms: nothing');
+}
+
 console.log(fails ? `${fails} FAILED, ${passes} passed` : `${passes} checks passed`);
 process.exit(fails ? 1 : 0);
