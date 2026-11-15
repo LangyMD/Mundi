@@ -12,6 +12,7 @@ import { pickFile } from './cropper.js';
 import { icon } from './icons.js';
 import { ACT, INPUT } from './reg.js';
 import { CW, W, txt, area, sel, num, chk } from './creator.js';
+import { IE, WEAR } from './interioredit.js';
 export const ME = { map: '', mode: 'move', zone: '', pin: '', zoom: 1, bgPick: false, bgq: '', bgs: null, bgPeriod: '' };
 const TAGS = ['leisure', 'food', 'shop', 'work', 'study', 'service', 'health'];
 const TAG_NAMES = { leisure: 'Leisure', food: 'Food', shop: 'Shopping', work: 'Work', study: 'Study', service: 'Services', health: 'Health' };
@@ -62,6 +63,8 @@ function placeForm(w) {
                 <small class="mu-muted">${p.roles ? 'Set by you.' : 'Guessed from its name; click to set them yourself.'}</small></div>
             ${isScenario(w) ? chk('Off unless the player picks it', `${path}.scenarioOff`, 'A Home: when starting a game, the player chooses which rooms the house has.') : ''}
             ${num('How busy (× its kind; 0.5 quiet, 1.5 lively)', `${path}.crowd`, 0, 0.1)}
+            ${sel('What people wear here', `${path}.wear`, WEAR)}
+            ${isScenario(w) ? '' : `<button class="mu-ghost" data-act="me-rooms">${icon('home')}<span>${p.interior?.rooms?.length ? `Rooms inside (${p.interior.rooms.length})` : 'Give it rooms inside'}</span></button>`}
             <div class="mu-field"><span>Closed at</span><div class="mu-chips">${w.time.periods.map(per => `<button class="mu-chip ${closedOf(w, p).includes(per.id) ? 'is-on' : ''}" data-act="me-closed" data-period="${esc(per.id)}">${esc(per.name)}</button>`).join('')}</div>
                 <small class="mu-muted">${Array.isArray(p.closed) ? 'Its own hours.' : 'Like places of its kind (shops close at night, offices at dawn…). Click to set its own hours.'} Closed: nothing to do there, nobody comes for leisure.</small></div></div>
         <div class="mu-me-pfcol"><div class="mu-field"><span>Background of the scene</span>
@@ -143,7 +146,7 @@ export function mapEditorHtml(w) {
     return `<div class="mu-me">${maps}
         <div class="mu-me-center">${tools}
             <div class="mu-me-stage is-${ME.mode}" data-keep="me-stage"><div class="mu-me-img" data-me-img style="width:${ME.zoom * 100}%;aspect-ratio:${m.ratio};background-image:url('${safeUrl(worldFile(w, m.image))}')">
-                ${homesHtml(w, m)}${w.places.filter(p => p.map === m.id).map(p => pinHtml(w, p)).join('')}</div></div></div>
+                ${homesHtml(w, m)}${w.places.filter(p => p.map === m.id && !p.in).map(p => pinHtml(w, p)).join('')}</div></div></div>
         <aside class="mu-me-side" data-keep="me-side">${placeForm(w)}</aside></div>${bgPicker()}`;
 }
 /* ---------- pointer: add, select and drag pins ---------- */
@@ -384,7 +387,7 @@ Object.assign(ACT, {
         const m = curMap(w);
         if (!m)
             return;
-        const n = w.places.filter(p => p.map === m.id && !p.link).length;
+        const n = w.places.filter(p => p.map === m.id && !p.link && !p.in).length;
         if (n && !confirmTwice(`del-map-${m.id}`, `This map has ${n} places. Click again to remove the map and its places.`))
             return;
         w.places = w.places.filter(p => p.map !== m.id && p.link !== m.id);
@@ -406,7 +409,9 @@ Object.assign(ACT, {
         const used = w.occupations.filter(o => o.place === ME.pin).map(o => o.name);
         if (used.length && !confirmTwice(`del-${ME.pin}`, `Jobs are here (${used.join(', ')}). Click again to remove it anyway.`))
             return;
+        const gone = ME.pin;
         w.places.splice(i, 1);
+        w.places = w.places.filter(x => x.in !== gone); // (its rooms go with it)
         ME.pin = '';
         CW.dirty = true;
         notify();
@@ -424,6 +429,8 @@ Object.assign(ACT, {
     },
     'me-bg-pick': (el) => { ME.bgPick = true; ME.bgq = ''; ME.bgs = null; ME.bgPeriod = el.dataset.period ?? ''; notify(); },
     'me-bg-close': () => { ME.bgPick = false; notify(); },
+    'me-rooms': () => { if (!ME.pin)
+        return; IE.target = `place:${ME.pin}`; IE.floor = ''; IE.sel = ''; CW.tab = 'rooms'; notify(); },
     'me-bg': (el) => { const p = W().places.find(p => p.id === ME.pin); if (p) {
         setBg(p, ME.bgPeriod, bgHref(el.dataset.file));
         CW.dirty = true;

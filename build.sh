@@ -28,6 +28,8 @@ node tests/traits.test.mjs > /tmp/mundi-traits-test.log 2>&1 || { grep -v "^\[Mu
 echo "traits: $(tail -1 /tmp/mundi-traits-test.log)"
 node tests/places.test.mjs > /tmp/mundi-places-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-places-test.log; echo "PLACE TESTS FAILED"; exit 1; }
 echo "places: $(tail -1 /tmp/mundi-places-test.log)"
+node tests/creator-rooms.test.mjs > /tmp/mundi-creator-rooms-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-creator-rooms-test.log; echo "CREATOR ROOMS TESTS FAILED"; exit 1; }
+echo "creator rooms and traits: $(tail -1 /tmp/mundi-creator-rooms-test.log)"
 node tests/interiors.test.mjs > /tmp/mundi-interiors-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-interiors-test.log; echo "INTERIOR TESTS FAILED"; exit 1; }
 echo "interiors: $(tail -1 /tmp/mundi-interiors-test.log)"
 node tests/guests.test.mjs > /tmp/mundi-guests-test.log 2>&1 || { grep -v "^\[Mundi\]" /tmp/mundi-guests-test.log; echo "GUEST TESTS FAILED"; exit 1; }

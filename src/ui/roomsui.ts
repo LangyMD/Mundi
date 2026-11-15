@@ -17,13 +17,20 @@ const lock = (g: Save, w: WorldDef, p: RoomPlace) => (canEnter(g, w, p.id).ok ? 
 const whose = (g: Save, w: WorldDef, id: string) => { const o = bedrooms(g, w, g.player.loc)[id] ?? []; return o.length ? o.map(a => (a === '__you' ? 'Yours' : `${g.cast[a]?.name ?? ''}'s`)).join(' & ') : ''; };
 const whoIn = (g: Save, w: WorldDef) => { const by: Record<string, { avatar: string; name: string; met: boolean }[]> = {}; for (const r of presentAt(g, w, g.player.loc)) (by[roomOfPerson(g, w, r, g.player.loc)] ??= []).push(r); return by; };
 
-// Rows for the "Things to do" column: the other rooms of this building.
+// The button beside "Map" in a place with rooms: the floor plan is the way between them.
+export function roomsButton(g: Save, w: WorldDef): string {
+    const sp = spotAt(g, w, g.player.loc); if (!sp || sp.rooms.length < 2) return '';
+    const here = sp.rooms.find(r => r.id === roomNow(g, w))?.name ?? '';
+    return `<button class="mh-mapbtn mh-glass ${RM.plan ? 'is-on' : ''}" data-act="rm-plan" title="${esc(`Floor plan: you are in ${here} (${sp.rooms.length} rooms)`)}">${icon('home')}<span>Floor plan</span></button>`;
+}
+// Rows for the "Things to do" column: none for the rooms (the floor plan button leads to them), except a room drawn
+// on no floor, which the plan cannot reach.
 export function roomRows(g: Save, w: WorldDef): string[] {
-    const rooms = spotAt(g, w, g.player.loc)?.rooms ?? []; if (rooms.length < 2) return [];
+    const sp = spotAt(g, w, g.player.loc), rooms = sp?.rooms ?? []; if (!sp || rooms.length < 2) return [];
     const now = roomNow(g, w), by = whoIn(g, w);
-    return [`<button class="mh-act mh-glass is-rooms" data-act="rm-plan"><i>${icon('map')}</i><b>Floor plan</b><small>${esc(rooms.find(r => r.id === now)?.name ?? '')}</small></button>`,
-        ...rooms.filter(r => r.id !== now).map(r => { const l = lock(g, w, r), n = (by[r.id] ?? []).length;
-            return `<button class="mh-act mh-glass is-room" data-act="rm-go" data-id="${esc(r.id)}" ${l ? 'aria-disabled="true"' : ''}><i>${l ? icon('lock') : '🚪'}</i><b data-notr>${esc(r.name)}</b><small>${esc(l || (n ? `${n} ${n === 1 ? 'person' : 'people'} there` : whose(g, w, r.id) || 'Go there'))}</small></button>`; })];
+    const drawn = new Set(sp.boxes.filter(b => sp.floors.some(f => f.id === b.floor)).map(b => b.id));
+    return rooms.filter(r => r.id !== now && !drawn.has(r.id)).map(r => { const l = lock(g, w, r), n = (by[r.id] ?? []).length;
+        return `<button class="mh-act mh-glass is-room" data-act="rm-go" data-id="${esc(r.id)}" ${l ? 'aria-disabled="true"' : ''}><i>${l ? icon('lock') : '🚪'}</i><b data-notr>${esc(r.name)}</b><small>${esc(l || (n ? `${n} ${n === 1 ? 'person' : 'people'} there` : whose(g, w, r.id) || 'Go there'))}</small></button>`; });
 }
 
 // The floor plan, over the scene.

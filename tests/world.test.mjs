@@ -245,7 +245,7 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     ok(idsAt('park').includes('x-run') && idsAt('beach').includes('relax'), 'outdoors they are still there');
     ok(idsAt('gv_creek').includes('fish') && idsAt('pl_marina').includes('fish') && idsAt('docks').includes('fish') && !idsAt('park').includes('fish'), 'fishing where there is water to fish in');
     ok(idsAt('mall').includes('x-browse') && idsAt('mh_library').includes('x-readbook'), 'the mall and the library have something to do');
-    for (const p of modern.places.filter(x => (x.tags ?? []).includes('work'))) ok(modern.occupations.some(o => o.place === p.id), `a place of work has a job (${p.id})`);
+    for (const p of modern.places.filter(x => (x.tags ?? []).includes('work'))) ok(modern.occupations.some(o => o.place === p.id || o.place === p.in), `a place of work has a job (${p.id})`);   // a room counts through its building
     const o = modern.occupations.find(x => x.id === 'barista');
     g.player.job = { id: 'barista', rank: 0, shifts: 0 }; g.player.stats.energy = 100; at(g, 4, 7 * 60);
     ok(work.shiftLeft(g, o) === o.shift, 'a whole shift is there to work in the morning');

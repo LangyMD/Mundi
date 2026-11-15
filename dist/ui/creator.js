@@ -23,10 +23,12 @@ import { mapEditorHtml, ME } from './mapedit.js';
 import { pickFile } from './cropper.js';
 import { icon, ICON_NAMES } from './icons.js';
 import { ACT, INPUT } from './reg.js';
-const TABS = [['general', 'General'], ['features', 'Features'], ['needs', 'Needs'], ['maps', 'Maps & places'], ['homes', 'Homes & rent'],
-    ['actions', 'Things to do'], ['jobs', 'Jobs'], ['courses', 'Courses'], ['shop', 'Shop'], ['words', 'Words (lexicon)'], ['character', 'Character creation'], ['rpg', 'RPG'], ['customs', 'Customs & calendar'], ['realm', 'Realm & factions'], ['economy', 'Economy & skies'], ['people', 'People & routines'], ['lore', 'Lore'], ['books', 'Lorebooks & notes']];
+import { interiorEditorHtml } from './interioredit.js';
+import { DEFAULT_TRAITS, traitId, isCareer } from '../sim/persontraits.js';
+const TABS = [['general', 'General'], ['features', 'Features'], ['needs', 'Needs'], ['maps', 'Maps & places'], ['rooms', 'Rooms'], ['homes', 'Homes & rent'],
+    ['actions', 'Things to do'], ['jobs', 'Jobs'], ['courses', 'Courses'], ['shop', 'Shop'], ['words', 'Words (lexicon)'], ['character', 'Character creation'], ['rpg', 'RPG'], ['customs', 'Customs & calendar'], ['realm', 'Realm & factions'], ['economy', 'Economy & skies'], ['people', 'People & routines'], ['ptraits', 'Traits people gain'], ['lore', 'Lore'], ['books', 'Lorebooks & notes']];
 // A scenario (one house, its residents) leaves out the tabs about towns, careers and kingdoms (a switch shows them).
-const SCENARIO_HIDES = ['realm', 'economy', 'rpg'];
+const SCENARIO_HIDES = ['realm', 'economy', 'rpg', 'rooms'];
 export const CW = {
     w: null, tab: 'general', dirty: false, saving: false, confirmDel: false, leaveAsk: false, nameMiss: false,
     sel: { courses: 0, needs: 0, actions: 0, jobs: 0, zones: 0, kinds: '', traits: 0, origins: 0, people: 0, routine: '', lore: 0 },
@@ -72,7 +74,7 @@ function master(key, path, label, form, add, empty = 'Nothing here yet.') {
             <button class="mu-primary" data-act="cw-add" data-what="${esc(add)}">${icon('plus')}<span>Add</span></button></aside>
         <section class="mu-cw-form">${list.length ? `${form(i)}<button class="mu-danger mu-cw-del" data-act="cw-del" data-path="${path}.${i}">${icon('trash')}<span>Remove</span></button>` : ''}</section></div>`;
 }
-const placeOpts = (w, none = '') => [...(none ? [['', none]] : []), ...w.places.filter(p => !p.link).map(p => [p.id, p.name])];
+const placeOpts = (w, none = '') => [...(none ? [['', none]] : []), ...w.places.filter(p => !p.link && !p.in).map(p => [p.id, p.name])];
 const statusOpts = (w) => w.statuses.map(s => [s.id, `${s.icon} ${s.name}`]);
 const zoneOpts = (w, none = '') => [...(none ? [['', none]] : []), ...w.homes.zones.map(z => [z.id, z.name])];
 const traitOptions = (w) => (w.sheet.traits ?? []).flatMap(t => t.options);
@@ -181,6 +183,7 @@ function tabActions(w) {
             <label class="mu-field"><span>Where</span><select data-act-input="cw-where" data-input="cw-where" data-i="${esc(i)}">${WHERE.map(([v, l]) => `<option value="${v}" ${where === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
             ${where === 'tags' ? chips(tags, `${p}.tags`) : where === 'place' ? sel('Place', `${p}.place`, placeOpts(w)) : ''}
             ${where === 'tags' ? `<h4>But not in places tagged</h4>${chips(tags, `${p}.notTags`)}` : ''}
+            ${csv('Only in rooms tagged (where the place or home has rooms)', `${p}.rooms`, 'Kinds of room, comma separated (bath, kitchen…): the Rooms tab gives each room its tags. Empty: any room.')}
             ${chk('An outing (off-screen)', `${p}.outing`, 'You leave for a while (work, errands, a night out) and come back: offered even when needs are off. Made for Homes.')}
             ${sel('Only if the player owns', `${p}.needsItem`, [['', 'Nothing (always offered)'], ...(w.catalogs.shop ?? []).map(it => [it.id, `${it.icon ?? ''} ${it.name}`])])}
             <h4>Effects</h4><div class="mu-cw-effects">${w.statuses.map(s => num(esc(`${s.icon} ${s.name}`), `${p}.effects.${s.id}`, -1000)).join('')}</div>`;
@@ -192,6 +195,7 @@ function tabJobs(w) {
         const o = w.occupations[i];
         return `${txt('Name', `${p}.name`)}<button class="mu-ghost" data-act="cw-rnd-job" data-i="${esc(i)}">${icon('redo')}<span>Randomize hours, pay and promotions</span></button>
             ${sel('Works at', `${p}.place`, placeOpts(w, '(choose a place)'))}
+            ${(() => { const rooms = w.places.filter(x => x.in && x.in === o.place); return rooms.length || o.room ? sel('In which room (a place with rooms)', `${p}.room`, [['', 'The entry'], ...rooms.map(x => [x.id, x.name])]) : ''; })()}
             <div class="mu-row2">${num('Shift length (hours)', `${p}.shift`, 1)}${num('Energy per shift', `${p}.cost.energy`)}</div>
             <div class="mu-row2">${num('Opens at (hour)', `${p}.hours.0`, 0)}${num('Closes at (hour)', `${p}.hours.1`, 0)}</div>
             <h4>Ranks and pay per hour</h4>
@@ -634,6 +638,9 @@ function peopleEditor(w) {
     const jobs = [['', 'No job'], ...w.occupations.map(o => [o.id, o.name])];
     const routines = Object.keys(w.cast.routineTemplates).map(id => [id, id]);
     const spots = w.places.filter(p => !p.link).map(p => p.name).length;
+    // (the bedrooms of every plan of homes: a person can name theirs)
+    const allPlans = [...Object.values((w.homes.plans ?? {})), ...Object.values(w.homes.kinds).map(k => (k.interior && typeof k.interior === 'object' ? k.interior : null)).filter(Boolean)];
+    const bedrooms = allPlans.flatMap(pl => (pl.templates ?? []).filter(t => t.owner).map(t => [t.id, allPlans.length > 1 && pl.name ? `${t.name} (${pl.name})` : t.name])).filter((x, i, a) => a.findIndex(y => y[0] === x[0]) === i);
     return `<section class="mu-cw-sec mu-cw-wide"><h4>People of this world</h4>
         <p class="mu-muted">Each becomes a character card when a game of this world starts. Their job, home and routine say where they are each hour.</p>
         ${master('people', 'cast.examples', e => `<b>${esc(e.name)}</b><small>${esc(w.occupations.find(o => o.id === e.occupation)?.name ?? 'No job')} · ${e.age}</small>`, i => {
@@ -642,7 +649,8 @@ function peopleEditor(w) {
         return `<div class="mu-row2">${txt('Name', `${p}.name`)}${num('Age', `${p}.age`, 18)}</div>
                 <div class="mu-row2">${sel('Job', `${p}.occupation`, jobs, 'nullable')}${sel('Lives in', `${p}.home`, zoneOpts(w))}</div>
                 ${sel('Routine', `${p}.routine`, routines)}
-                <h4>Goes out to (free time)</h4>${pairChips(w.places.filter(x => !x.link).map(x => [x.id, x.name]), `${p}.leisure`)}
+                ${bedrooms.length || e.room ? sel('Their bedroom (in a home with rooms)', `${p}.room`, [['', 'Whichever is free'], ...bedrooms]) : ''}
+                <h4>Goes out to (free time)</h4>${pairChips(w.places.filter(x => !x.link && !x.in).map(x => [x.id, x.name]), `${p}.leisure`)}
                 ${area('Description (who they are; becomes the card\'s description)', `${p}.description`, 5)}
                 ${area('Personality (optional)', `${p}.personality`, 2)}
                 ${area('First message (optional; the card\'s greeting)', `${p}.first_mes`, 3)}
@@ -660,6 +668,28 @@ function tabPeople(w) {
         ${peopleEditor(w)}
         ${routineEditor(w)}
     </div>`;
+}
+// The traits people gain and lose in a game (sim/persontraits.ts): who someone is lately. A world without a list of
+// its own has the usual ones.
+function tabPersonTraits(w) {
+    const own = Array.isArray(w.traits) && w.traits.length;
+    const head = `<p class="mu-muted">What a person is lately, beyond their card: lasting ones (athletic, a party animal) come from what you do together, often; passing ones (hurt, sick) end by themselves. The AI is told, and a character's pictures can have a set for a trait (a folder named after its id). A job counts as a trait by itself. These are not the traits of Character creation, which are chosen once for your own character.</p>`;
+    if (!own)
+        return `<div class="mu-cw-grid"><section class="mu-cw-sec"><h4>Traits people gain</h4>${head}
+        <p>This world uses the usual list:</p><div class="mu-chips">${DEFAULT_TRAITS.map(t => `<span class="mu-chip" title="${esc(t.desc ?? '')}">${esc(t.name)}${t.kind === 'state' ? ` · ${t.days} days` : ''}</span>`).join('')}</div>
+        <button class="mu-primary" data-act="cw-ptraits-own">${icon('pen')}<span>Give this world its own list (starting from these)</span></button></section></div>`;
+    const list = w.traits;
+    return `<div class="mu-cw-grid"><section class="mu-cw-sec"><h4>Traits people gain</h4>${head}
+        ${master('ptraits', 'traits', (t) => `<b>${esc(t.name)}</b><small>${t.kind === 'state' ? `passes in ${t.days ?? 5} days` : 'lasting'}</small>`, i => {
+        const p = `traits.${i}`;
+        const t = list[i];
+        return `<div class="mu-row2">${txt('Name', `${p}.name`)}<label class="mu-field"><span>Id (the folder of its pictures)</span><input value="${esc(t.id)}" data-input="cw-ptrait-id" data-i="${i}" data-focus="${p}.id"><small class="mu-muted">Lowercase letters, digits and dashes. Changing it later orphans the pictures and the games that use it.</small></label></div>
+                ${txt('What the AI is told, after the name', `${p}.desc`, 'goes out most nights and loves a crowd')}
+                ${sel('Kind', `${p}.kind`, [['lasting', 'Lasting: part of who they are'], ['state', 'Passing: it ends by itself']])}
+                ${t.kind === 'state' ? num('Lasts … days', `${p}.days`, 1) : `${csv('Doing these with you, often, brings it', `${p}.grow`, 'Words looked for in the name of the thing you do together (work out, gym, run…). Empty: only by hand or from events.')}${num('How many times together it takes (empty: 5)', `${p}.need`, 1)}`}`;
+    }, 'ptrait', 'No traits.')}
+        ${csv('When several picture sets fit, these traits win first (ids, in order)', 'traitPriority', `Ids: ${esc(list.map(t => t.id).join(', '))}`)}
+        <button class="mu-ghost" data-act="cw-ptraits-usual">${icon('redo')}<span>Back to the usual list</span></button></section></div>`;
 }
 function tabLore(w) {
     return master('lore', 'lore', (l, k) => `<b>${esc((l.keys ?? []).join(', ') || `#${k + 1}`)}</b><small>${l.constant ? 'Always on' : ''}</small>`, i => {
@@ -763,7 +793,7 @@ export function creatorHtml() {
     const w = CW.w;
     if (!w)
         return '';
-    const body = CW.tab === 'general' ? tabGeneral(w) : CW.tab === 'features' ? tabFeatures(w) : CW.tab === 'needs' ? tabNeeds(w) : CW.tab === 'maps' ? (isScenario(w) ? houseMapsHtml(w) : mapEditorHtml(w))
+    const body = CW.tab === 'rooms' ? interiorEditorHtml(w) : CW.tab === 'ptraits' ? tabPersonTraits(w) : CW.tab === 'general' ? tabGeneral(w) : CW.tab === 'features' ? tabFeatures(w) : CW.tab === 'needs' ? tabNeeds(w) : CW.tab === 'maps' ? (isScenario(w) ? houseMapsHtml(w) : mapEditorHtml(w))
         : CW.tab === 'homes' ? tabHomes(w) : CW.tab === 'actions' ? tabActions(w) : CW.tab === 'jobs' ? tabJobs(w) : CW.tab === 'courses' ? tabCourses(w) : CW.tab === 'shop' ? tabShop(w) : CW.tab === 'words' ? tabWords(w) : CW.tab === 'character' ? tabCharacter(w) : CW.tab === 'rpg' ? tabRpg(w) : CW.tab === 'customs' ? tabCustoms(w) : CW.tab === 'realm' ? tabRealm(w) : CW.tab === 'economy' ? tabEconomy(w)
             : CW.tab === 'people' ? tabPeople(w) : CW.tab === 'books' ? tabBooks(w) : tabLore(w);
     return `<div class="mu-settings mu-creator-ed">
@@ -771,7 +801,7 @@ export function creatorHtml() {
 </div>
         <div class="mu-settings-layout mu-cw-layout">
             <nav class="mu-tabs">${TABS.filter(([id]) => !(RPG_LOCKED && id === 'rpg')).filter(([id]) => CW.allTabs || !isScenario(W()) || !SCENARIO_HIDES.includes(id)).map(([id, l]) => `<button class="${CW.tab === id ? 'is-on' : ''}" data-act="cw-tab" data-tab="${esc(id)}">${l}</button>`).join('')}</nav>
-            <div class="mu-settings-body mu-panel ${CW.tab === 'maps' ? 'is-maps' : ''}" data-keep="cw-body">${body}</div>
+            <div class="mu-settings-body mu-panel ${CW.tab === 'maps' || CW.tab === 'rooms' ? 'is-maps' : ''}" data-keep="cw-body">${body}</div>
         </div>
         <div class="mu-row mu-cw-new-go mu-cw-foot">
             ${CW.confirmDel ? `<span class="mu-warn">Delete "${esc(w.name)}"? This cannot be undone.</span><button data-act="cw-delete-no">Cancel</button><button class="mu-danger" data-act="cw-delete-yes">${icon('trash')}<span>Delete</span></button>`
@@ -818,6 +848,8 @@ export const leaveHtml = (k) => `<div class="mu-dlg-veil" data-act="${k}-leave-s
     <div class="mu-row mu-dlg-btns"><button data-act="${k}-leave-stay">Stay</button><button class="mu-danger" data-act="${k}-leave-go">Leave without saving</button><button class="mu-primary" data-act="${k}-leave-save">${icon('save')}<span>Save and leave</span></button></div></div></div>`;
 function close() { CW.leaveAsk = false; CW.confirmDel = false; CW.dirty = false; CW.w = null; CW.start = null; state.view = (backTo === 'creator' ? 'newgame' : backTo); notify(); }
 const NEW = {
+    ptrait: () => { const have = new Set((W().traits ?? []).map(t => t.id)); let n = 1; while (have.has(`new-trait${n > 1 ? `-${n}` : ''}`))
+        n++; return ['traits', { id: `new-trait${n > 1 ? `-${n}` : ''}`, name: 'New trait', desc: '', kind: 'lasting', grow: [] }]; },
     rattr: () => ['rpg.attributes', { id: newId('attr'), name: 'New attribute', short: 'NEW' }],
     rskill: () => ['rpg.skills', { id: newId('skill'), name: 'New skill', attr: W().rpg?.attributes[0]?.id ?? 'str' }],
     rclass: () => ['rpg.classes', { id: newId('class'), name: 'New class', hit: 8, key: W().rpg?.attributes[0]?.id ?? 'str', skills: [], subAt: 3, subclasses: [] }],
@@ -857,7 +889,7 @@ const NEW = {
     look: () => ['sheet.appearance', { id: newId('look'), label: 'New trait', options: [] }],
     trait: () => ['sheet.traits', { id: newId('trait'), label: 'New group', max: 2, options: [] }],
 };
-const listKey = { 'rpg.attributes': 'rattr', 'rpg.skills': 'rskill', 'rpg.classes': 'rclass', 'rpg.schools': 'rschool', 'rpg.spells': 'rspell', 'rpg.titles': 'rtitle', 'rpg.bestiary': 'rfoe', habits: 'habit', festivals: 'festival', cityEvents: 'cevent', hobbies: 'hobby', pets: 'pet', 'realm.pantheon': 'god', factions: 'faction', institutions: 'inst', 'rpg.talents': 'rtal', goods: 'good', recipes: 'recipe', towers: 'tower', blades: 'blade', crops: 'crop', businesses: 'biz', 'skies.events': 'sky', 'skies.hazards': 'hazard', 'catalogs.shop': 'shop', 'homes.breakables': 'breakables', 'catalogs.courses': 'courses', 'homes.expenses': 'expenses', statuses: 'needs', actions: 'actions', occupations: 'jobs', 'homes.zones': 'zones', 'catalogs.origins': 'origins', 'cast.examples': 'people', lore: 'lore' };
+const listKey = { traits: 'ptraits', 'rpg.attributes': 'rattr', 'rpg.skills': 'rskill', 'rpg.classes': 'rclass', 'rpg.schools': 'rschool', 'rpg.spells': 'rspell', 'rpg.titles': 'rtitle', 'rpg.bestiary': 'rfoe', habits: 'habit', festivals: 'festival', cityEvents: 'cevent', hobbies: 'hobby', pets: 'pet', 'realm.pantheon': 'god', factions: 'faction', institutions: 'inst', 'rpg.talents': 'rtal', goods: 'good', recipes: 'recipe', towers: 'tower', blades: 'blade', crops: 'crop', businesses: 'biz', 'skies.events': 'sky', 'skies.hazards': 'hazard', 'catalogs.shop': 'shop', 'homes.breakables': 'breakables', 'catalogs.courses': 'courses', 'homes.expenses': 'expenses', statuses: 'needs', actions: 'actions', occupations: 'jobs', 'homes.zones': 'zones', 'catalogs.origins': 'origins', 'cast.examples': 'people', lore: 'lore' };
 Object.assign(ACT, {
     'cw-rpg-preset': (el) => { W().rpg = structuredClone(el.dataset.v === 'modern' ? MODERN_RPG : el.dataset.v === 'powers' ? POWERS_RPG : MEDIEVAL_RPG); CW.dirty = true; notify(); },
     'cw-rpg-empty': () => { W().rpg = { attributes: [], hpAttr: '', skills: [], classes: [], xp: [100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500, 6600], schools: [], spells: [], titles: [] }; CW.dirty = true; notify(); },
@@ -947,6 +979,8 @@ Object.assign(ACT, {
     else
         notify(); },
     'cw-tab': (el) => { CW.tab = el.dataset.tab; notify(); },
+    'cw-ptraits-own': () => { W().traits = structuredClone(DEFAULT_TRAITS); CW.sel.ptraits = 0; CW.dirty = true; notify(); },
+    'cw-ptraits-usual': () => { delete W().traits; delete W().traitPriority; CW.dirty = true; notify(); },
     'cw-pick': (el) => { CW.sel[el.dataset.k] = Number(el.dataset.i); notify(); },
     'cw-routine': (el) => { CW.sel.routine = el.dataset.id; notify(); },
     'cw-add': (el) => {
@@ -1166,6 +1200,21 @@ export async function importWorldFile() {
 Object.assign(INPUT, {
     'cw-words-q': (el) => { WORDS.q = el.value; notify(); },
     'cw-alltabs': (el) => { CW.allTabs = el.checked; notify(); },
+    // a trait's id: kept a clean folder name, never a job's, never another trait's
+    'cw-ptrait-id': (el) => {
+        const list = (W().traits ?? []);
+        const t = list[Number(el.dataset.i)];
+        if (!t)
+            return;
+        const id = traitId(el.value);
+        if (!id || isCareer(id) || list.some(x => x !== t && x.id === id))
+            return; // (kept as it was until it is usable)
+        const pr = W().traitPriority;
+        if (pr)
+            W().traitPriority = pr.map(x => (x === t.id ? id : x));
+        t.id = id;
+        CW.dirty = true;
+    },
     cw: (el) => {
         const t = el.dataset.type;
         const p = el.dataset.path;
@@ -1180,7 +1229,7 @@ Object.assign(INPUT, {
             v = el.value === '' ? undefined : el.value === 'true';
         else if (t === 'nullable')
             v = el.value === '' ? null : el.value; // a choice where empty means none (no job)
-        else if (p.includes('.when.') && el.value === '')
+        else if ((p.includes('.when.') || /\.(room|wear)$/.test(p)) && el.value === '')
             v = undefined;
         else if (t === 'time') {
             const [h, m] = el.value.split(':').map(Number);
