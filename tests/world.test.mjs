@@ -491,5 +491,19 @@ const medieval = world(ext, 'medieval'); W.registerWorld(medieval);
     g.day += 5; npc.npcOf(g, modern, A);
     ok(!/breakup|promotion/.test(npc.npcLine(g, modern, [A])), 'and it passes');
 }
+// who people are, read from their card in plain words
+{
+    const npc = await D('sim/npcneeds.js'); const people = await D('sim/people.js');
+    const T = (t) => npc.readTraits(t).sort().join();
+    ok(T('Bianca is a bubbly, outgoing barista who surfs every morning and loves to cook.') === 'athletic,foodie,outgoing', `traits from a description (${T('Bianca is a bubbly, outgoing barista who surfs every morning and loves to cook.')})`);
+    ok(T('A shy bookworm who prefers staying in.') === 'bookish,homebody,shy' && T('Good-natured by nature. Sells candy.') === '', 'shy and bookish are read; ordinary words are not');
+    ok(T('Outgoing at work but shy with strangers.') === '', 'opposites cancel out');
+    seed(4); const g = open(fixture('v0.1.0-modern.json')); const r = Object.values(g.cast)[0];
+    const lonely = (traits) => { at(g, 30, 8 * 60); g.npc = { [r.avatar]: { n: { hunger: 90, energy: 90, social: 90, fun: 90, hygiene: 90 }, last: Math.floor((30 * 1440 + 8 * 60) / 60), p: [1, traits] } }; g.social = { ...(g.social ?? {}), with: [], appts: [], stays: [] };
+        const saved = r.routine; r.routine = { weekday: [[0, 'home']], weekend: [[0, 'home']] }; time.advance(g, modern, 6 * 60); r.routine = saved; return g.npc[r.avatar].n.social; };
+    const plain = lonely([]), out = lonely(['outgoing']), shy = lonely(['shy']);
+    ok(out < plain && shy > plain, `an outgoing person misses company sooner, a shy one later (${out} < ${plain} < ${shy})`);
+    ok(npc.traitsOf(g, r).join() === 'shy', 'what was read is kept with the save');
+}
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

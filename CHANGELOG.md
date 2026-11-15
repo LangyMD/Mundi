@@ -16,6 +16,9 @@
   other company; now and then it is remembered ("Bianca and Marco spent time together at the Beach"), so it reaches
   their memories and the rumors. And their own news stays on their mind for a few days (an engagement, a breakup, a
   promotion): the AI is told, and it changes how willing they are.
+- **People take after their character cards:** a card that says outgoing, shy, lazy, athletic, tidy, a foodie, a
+  bookworm, a party-goer, a homebody or outdoorsy (in plain words; no AI call) changes how fast that person's needs
+  move and which places pull them in their free time.
 - **Who you are changes your needs:** traits, habits that became traits and hobby levels now change how fast needs
   drop and how much fills them (a cheerful person keeps their mood longer, an athletic one has more energy, a good
   cook gets more from a home meal, a film lover enjoys the cinema more), and how fast friendships and romance grow

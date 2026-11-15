@@ -9,6 +9,7 @@ import { systemOn } from '../core/world.js';
 import { onHour } from './hooks.js';
 import { routineStep, whereNow } from './people.js';
 import { note } from './facts.js';
+import { charOf } from '../st/bridge.js';
 export const NPC_NEEDS = ['hunger', 'energy', 'social', 'fun', 'hygiene'];
 const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -18,6 +19,54 @@ const lim = (v) => Math.max(0, Math.min(100, Math.round(v * 10) / 10));
 export const npcOn = (w) => !!w && systemOn(w, 'npclife');
 // People differ: each one's needs move a little faster or slower (×0.8 … ×1.2), the same for life.
 export const temper = (avatar, need) => 0.8 + (hash(`${avatar}|${need}`) % 41) / 100;
+const TRAIT_WORDS = [
+    ['outgoing', /\b(outgoing|extrovert\w*|sociable|social butterfly|talkative|chatty|gregarious|life of the party|bubbly|friendly to everyone)\b/i],
+    ['shy', /\b(shy|introvert\w*|reserved|withdrawn|timid|quiet and|keeps to (her|him|them)sel\w+|loner|socially awkward|aloof)\b/i],
+    ['lazy', /\b(lazy|laid[- ]back|slacker|sleeps in|procrastinat\w*|couch potato|unmotivated)\b/i],
+    ['athletic', /\b(athlet\w*|sporty|gym\b|works out|runner|jogs?|swimmer|surf\w*|toned|muscular|fit and|martial arts|dancer|yoga|boxing|soccer|football|basketball|tennis)\b/i],
+    ['tidy', /\b(tidy|neat\b|neat freak|clean freak|meticulous|fastidious|immaculate|well[- ]groomed|perfectionist)\b/i],
+    ['messy', /\b(messy|slob|unkempt|scruffy|disheveled|dishevelled|untidy)\b/i],
+    ['foodie', /\b(foodie|loves? (to )?(eat\w*|food|cook\w*)|chef|baker|cooks? for|sweet tooth|gourmet|always (hungry|snacking))\b/i],
+    ['bookish', /\b(bookish|bookworm|loves? (to )?read\w*|avid reader|studious|nerd\w*|scholar\w*|librarian|student|intellectual)\b/i],
+    ['party', /\b(party\w*|nightlife|clubbing|clubs\b|bars?\b|drinks? with|night owl)\b/i],
+    ['homebody', /\b(homebody|stays? (at )?home|rarely goes out|prefers? (to stay|staying) in|gamer|plays? video games|recluse\w*)\b/i],
+    ['outdoorsy', /\b(outdoors\w*|nature lover|loves? nature|hik\w+|camping|beach\w*|garden\w*|fishing|loves? (the )?(sea|ocean|forest|mountains?))\b/i],
+];
+/** The traits a description shows (a few plain words; opposites cancel out). */
+export function readTraits(text) {
+    const t = TRAIT_WORDS.filter(([, re]) => re.test(text)).map(([id]) => id);
+    const drop = (a, b) => { if (t.includes(a) && t.includes(b)) {
+        t.splice(t.indexOf(a), 1);
+        t.splice(t.indexOf(b), 1);
+    } };
+    drop('outgoing', 'shy');
+    drop('tidy', 'messy');
+    drop('party', 'homebody');
+    drop('lazy', 'athletic');
+    return t;
+}
+// Read once per person and kept in the save (read again when their card's text changes).
+export function traitsOf(g, r) {
+    const s = store(g)[r.avatar];
+    const c = charOf(r.avatar);
+    const text = `${c?.description ?? ''} ${c?.personality ?? ''}`;
+    const sig = text.length;
+    if (s && s.p && s.p[0] === sig)
+        return s.p[1];
+    const list = readTraits(text);
+    if (s)
+        s.p = [sig, list];
+    return list;
+}
+// What a trait does to how fast a need drops (×), and to how much a kind of place pulls (×, by its tags).
+const TRAIT_DECAY = {
+    outgoing: { social: 1.35 }, shy: { social: 0.65 }, lazy: { energy: 1.2 }, athletic: { energy: 0.85, hygiene: 1.15 }, messy: { hygiene: 1.2 }, foodie: { hunger: 1.15 }, homebody: { social: 0.8, fun: 0.8 },
+};
+const TRAIT_TAGS = {
+    athletic: [['sport'], 1.5], foodie: [['food'], 1.3], bookish: [['study'], 1.6], party: [['bar'], 1.6], outdoorsy: [['leisure'], 1.25], shy: [['bar'], 0.6], lazy: [['sport'], 0.5],
+};
+const pace = (g, r, need) => traitsOf(g, r).reduce((m, t) => m * (TRAIT_DECAY[t]?.[need] ?? 1), temper(r.avatar, need));
+const taste = (g, r, tags) => traitsOf(g, r).reduce((m, t) => { const x = TRAIT_TAGS[t]; return x && x[0].some(tag => tags.includes(tag)) ? m * x[1] : m; }, 1);
 // What an hour does, by what they are doing (per hour; + fills, − costs).
 const HOUR = {
     sleep: { hunger: -2, energy: 11, social: 0, fun: 0, hygiene: -1 },
@@ -83,9 +132,9 @@ export function chooseSpot(g, w, r, options, at, stepHour, homeId) {
         if (tags.includes('leisure') && !tags.includes('food'))
             parts.fun = 1;
         // each person has places they like more (their favorites, and a taste of their own), and the day varies a little
-        offer(id, parts, (fav.has(id) ? 1.25 : 1) * (0.8 + (hash(`${r.avatar}|likes|${id}`) % 41) / 100) * (0.9 + (hash(`${r.avatar}|${key}|${id}`) % 21) / 100));
+        offer(id, parts, taste(g, r, tags) * (fav.has(id) ? 1.25 : 1) * (0.8 + (hash(`${r.avatar}|likes|${id}`) % 41) / 100) * (0.9 + (hash(`${r.avatar}|${key}|${id}`) % 21) / 100));
     }
-    if (homeId && n.energy < 30)
+    if (homeId && (n.energy < 30 || traitsOf(g, r).includes('homebody')))
         offer(homeId, { energy: 0.9, hygiene: 0.4 }, 1); // staying in is for the worn out: the world stays lively
     if (!best)
         return null;
@@ -99,7 +148,7 @@ function fresh(r, hour) {
     const v = (k, lo, hi) => lo + (hash(`${r.avatar}|start|${k}`) % (hi - lo + 1));
     return { n: { hunger: v('hunger', 45, 85), energy: lim(h < 7 ? 60 + h * 5 : 100 - (h - 7) * 4 + v('energy', -8, 8)), social: v('social', 45, 80), fun: v('fun', 40, 80), hygiene: v('hygiene', 55, 95) }, last: hour };
 }
-function oneHour(w, r, s, hour, withPlayer) {
+function oneHour(g, w, r, s, hour, withPlayer) {
     let d = doingAt(w, r, hour);
     const n = s.n;
     const stayedIn = d === 'out' && !!s.act && s.act.place.startsWith('home:'); // free time spent at home, by choice
@@ -113,7 +162,7 @@ function oneHour(w, r, s, hour, withPlayer) {
             v = 1;
         if (k === 'social' && withPlayer && d !== 'sleep')
             v = Math.max(v, 0) + 8;
-        n[k] = lim(n[k] + (v < 0 ? v * temper(r.avatar, k) : v));
+        n[k] = lim(n[k] + (v < 0 ? v * pace(g, r, k) : v));
     }
     if (d === 'work') {
         s.work = hour;
@@ -163,7 +212,7 @@ export function npcOf(g, w, r) {
         s.last = now; // (marked first: finding where they are may ask for their needs again)
         const here = whereNow(g, w, r) === g.player.loc; // the player's company counts for the hour it is given
         for (let h = from + 1; h <= now; h++)
-            oneHour(w, r, s, h, h === now && here);
+            oneHour(g, w, r, s, h, h === now && here);
     }
     return s;
 }
